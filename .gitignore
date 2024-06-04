@@ -30,3 +30,7 @@ yarn.lock
 
 # Ignore any sensitive or local configuration files
 config.js
+
+
+test.py
+test.c
