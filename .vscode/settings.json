@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "pq_heap.h": "c",
+        "hash.h": "c",
+        "lista_ligada.h": "c",
+        "string.h": "c",
+        "stdlib.h": "c",
+        "math.h": "c"
+    }
+}
