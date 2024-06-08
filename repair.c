@@ -5,254 +5,90 @@
 
 typedef struct { 
     int A, B;   
-} Par; 
+} Pair; 
 
 typedef struct { 
-    Par par;
-    int qtde;   
-} ParQuantidade;
+    Pair pair;
+    int count;   
+} PairCount;
 
 typedef struct {
-    int tam;
+    int size;
     int *ptr;
-} expansao;
+} expansion;
 
-int* readFileAndConvertToIntArray(const char *filename, long *arraySize);
-void escrever_vetor_no_arquivo(expansao var, const char *nome_arquivo);
-ParQuantidade registra_pares(int *V, int tam_V, Hash *h); //retorna par mais frequente
-int atualiza_cadeia(int *V, int tam_V, int *aux, Par regra, int nonterminal);
-void swap_pointers(int **ptr1, int **ptr2); 
-void resize_vector(int **ptr, int tamanho_atual);
+int* readFileAndConvertToIntArray(const char *filename, int *arraySize);
+void writeArrayToFile(expansion compressedString, const char *filename);
 
-expansao* expansor(Par *gramatica, int tam_gramatica);
-expansao expandir_regra(expansao *expansoes, Par regra);
-expansao descompressor(int *V, int tam_V, Par *gramatica, int tam_gramatica);
+void swapPointers(int **ptr1, int **ptr2); 
+void resizeArray(int **ptr, int currentSize);
 
-void imprimir_gramatica(Par gramatica[], int tam_gramatica);
+PairCount recordPairs(int *array, int arraySize, Hash *h); //retorna par mais frequente
+int updateString(int *array, int arraySize, int *aux, Pair rule, int nonTerminal);
+expansion* expander(Pair *grammar, int grammarSize);
+expansion expandRule(expansion *expansions, Pair rule);
+expansion decompressor(int *compressedString, int arraySize, Pair *grammar, int grammarSize);
+
+void printCompressedString(expansion compressedString);
+void printGrammar(Pair *grammar, int grammarSize);
 
 int main(){
-    long arraySize;
-    // Call the function to read the file and convert to integer array
-    int *V = readFileAndConvertToIntArray("entrada.txt", &arraySize);
+    int size_V;
+    int *V = readFileAndConvertToIntArray("input.txt", &size_V);
     if (V == NULL) {
         return 1;  // Error occurred
     }
 
-    int tam_V = (int) arraySize;
-    int *aux = (int*) malloc(tam_V*sizeof(int)); //vai ser usado para auxiliar a atualizar V a cada iteração
-    Par *gramatica = (Par*) malloc(tam_V*sizeof(Par));
-    //Entrada: 1 17 28 15 0 11 13 24 10 0 1 17  13 24 0 16 28 15 0 11 13 24 0 1 17 13 24 20 0
-    //Saída: -2  -6  10  -8  0  16  -6  -8  20  0
+    int *aux = (int*) malloc(size_V*sizeof(int)); //vai ser usado para auxiliar a atualizar V a cada iteração
+    Pair *grammar = (Pair*) malloc(size_V*sizeof(Pair));
     
-    int nonterminal = -1; //guarda o "nome" do símbolo não-terminal. 
-    int i = 0; //numero de regras
-    Hash *h1 = criar_hash(30);
-    ParQuantidade par_max = registra_pares(V, tam_V, h1);
+    int nonTerminal = -1; //guarda o "nome" do símbolo não-terminal. 
+    int numRules = 0; //numero de regras da gramatica
+    Hash *h1 = criar_hash(100);
+    PairCount pair_max = recordPairs(V, size_V, h1);
     destruir_hash(&h1);
 
-    while(par_max.qtde > 1){
-        gramatica[i] = par_max.par;
-        i++;
-        tam_V = atualiza_cadeia(V, tam_V, aux, par_max.par, nonterminal);
-        swap_pointers(&V, &aux);
-        nonterminal--;
-        h1 = criar_hash(30);
-        par_max = registra_pares(V, tam_V, h1);
+    while(pair_max.count > 1){
+        grammar[numRules] = pair_max.pair;
+        numRules++;
+        size_V = updateString(V, size_V, aux, pair_max.pair, nonTerminal);
+        swapPointers(&V, &aux);
+        nonTerminal--;
+        h1 = criar_hash(100);
+        pair_max = recordPairs(V, size_V, h1);
         destruir_hash(&h1);
     }
     free(aux);
 
 /*
-   //imprimir resposta:
-    printf("\n");
-    printf("String comprimida: ");
-    for (int i = 0; i < tam_V; i++)
-    if (V[i] < 0){
-        printf("N%d",-V[i]);
-    }
-    else printf("%c",(char) V[i]);
-    printf("\n");
-    
-    imprimir_gramatica(gramatica, i);
+    //Quando a string de entrada não possui 'N', numerais ou caracteres especiais (como \n), fica legal imprimir:
+    expansion compressedString;
+    compressedString.size = size_V;
+    compressedString.ptr = V;
+
+    printCompressedString(compressedString);
+    printGrammar(grammar, numRules);
 */
 
-    expansao vetor_descomprimido = descompressor(V,tam_V,gramatica,i);
+    expansion decompressedString = decompressor(V,size_V,grammar,numRules);
     free(V);
-    free(gramatica);
+    free(grammar);
 
-    escrever_vetor_no_arquivo(vetor_descomprimido, "descompressao.txt");
+    writeArrayToFile(decompressedString, "decompressed_string.txt");
     
-    free(vetor_descomprimido.ptr);
+    free(decompressedString.ptr);
 
 
 
     return 0;
 }
 
-ParQuantidade registra_pares(int *V, int tam_V, Hash *h){
-    int par[2];
-    int quantidade_par;
-
-    ParQuantidade par_max = {0,0,0};
-    for (int i = 0; i < tam_V-1; i++){
-        par[0] = V[i]; par[1] = V[i+1];
-        quantidade_par = incrementa_valor_hash(h, par);
-        if (quantidade_par > par_max.qtde){
-            par_max.par.A = par[0]; par_max.par.B = par[1];
-            par_max.qtde = quantidade_par;
-        }
-    }
-    return par_max;
-}
-
-int atualiza_cadeia(int *V, int tam_V, int *aux, Par regra, int nonterminal){
-    int i = 0; //índice no vetor V
-    int j = 0; //índice no vetor aux
-    int novo_tamanho;
-    while ( i < tam_V-1){
-        if ((V[i] == regra.A) && (V[i+1] == regra.B)){
-            aux[j] = nonterminal;
-            j++;
-            i = i + 2;
-        }
-        else {
-            aux[j] = V[i];
-            j++; i++;
-        }
-    }
-    
-
-    if (i==tam_V-1){ //o último inteiro pode ter ficado de fora.
-        aux[j] = V[i];
-        j++;
-    } 
-        
-    novo_tamanho = j;
-    return novo_tamanho;
-    
-
-}
-
-void swap_pointers(int **ptr1, int **ptr2){
-    int *aux = *ptr1;
-    *ptr1 = *ptr2;
-    *ptr2 = aux;
-}
-
-void imprimir_gramatica(Par *gramatica, int tam_gramatica){
-    for (int i = 0; i < tam_gramatica; i++){
-        if (gramatica[i].A < 0){
-            printf("N%d -> N%d", i+1, -gramatica[i].A);
-        }
-        else printf("N%d -> %c", i+1, (char) gramatica[i].A);
-        if (gramatica[i].B < 0){
-            printf("N%d\n", -gramatica[i].B);
-        }
-        else printf("%c\n", (char) gramatica[i].B);
-    }
-}
-
-
-
-expansao* expansor(Par *gramatica, int tam_gramatica){
-    expansao *expansoes = (expansao*) malloc(tam_gramatica*sizeof(expansao));
-    for (int i = 0; i < tam_gramatica; i++){
-        expansoes[i] = expandir_regra(expansoes,gramatica[i]);
-    }
-    return expansoes;
-}
-
-expansao expandir_regra(expansao *expansoes, Par regra){
-    int index;
-
-    int tam_expansao_A = 1;
-    if (regra.A < 0){
-        index = -regra.A-1;
-        tam_expansao_A=expansoes[index].tam;
-    }
-
-    int tam_expansao_B = 1;
-    if (regra.B < 0){
-        index = -regra.B-1;
-        tam_expansao_B=expansoes[index].tam;
-    }
-
-    int tam_aux = tam_expansao_A + tam_expansao_B;
-
-    int *aux = (int*) malloc(tam_aux*sizeof(int));
-
-    if (regra.A<0){
-        index = -regra.A-1;
-        for (int i = 0; i < tam_expansao_A; i++){
-            aux[i] = expansoes[index].ptr[i];
-        }  
-    }
-    else{
-        aux[0] = regra.A;
-    } 
-    
-
-    if (regra.B<0){
-        index = -regra.B-1;
-        for (int i = 0; i < tam_expansao_B; i++){
-            aux[tam_expansao_A+i] = expansoes[index].ptr[i];
-        } 
-    }
-    else{
-        aux[tam_expansao_A] = regra.B;
-    } 
-    expansao exp;
-    exp.tam = tam_expansao_A + tam_expansao_B;
-    exp.ptr = aux;
-    return exp;
-}
-
-expansao descompressor(int *V, int tam_V, Par *gramatica, int tam_gramatica){
-    expansao *expansoes = expansor(gramatica, tam_gramatica);
-    int tam_aux = tam_V; //inicialmente alocarei tam_V pra aux, aumentarei conforme necessario
-    int *aux = (int*) malloc(tam_aux*sizeof(int));
-    int i,j=0;
-    for (i = 0; i < tam_V; i++){
-        if (V[i]<0){
-            int index = -V[i]-1;
-            int tam_expansao = expansoes[index].tam;
-            for (int k = 0; k < tam_expansao; k++){
-                if (j==tam_aux){
-                    tam_aux*=2;
-                    resize_vector(&aux,tam_aux);
-                }
-                aux[j] = expansoes[index].ptr[k];
-                j++;
-            }
-            
-        }
-        else {
-            if (j==tam_aux){
-                tam_aux*=2;
-                resize_vector(&aux,tam_aux);
-            }
-            aux[j] = V[i];
-            j++;
-        }
-    }
-    free(expansoes);
-    expansao resposta;
-    //Talvez eu possa usar um resize_vector(&aux, j) aqui...
-    resposta.tam = j; resposta.ptr=aux;
-    return resposta;
-}
-
-void resize_vector(int **ptr, int tamanho_atual){
-    *ptr = realloc(*ptr, 2*tamanho_atual*sizeof(int));
-}
-
-
 // Function to read file and convert its contents to an integer array
-int* readFileAndConvertToIntArray(const char *filename, long *arraySize) {
+int* readFileAndConvertToIntArray(const char *filename, int *arraySize) {
     FILE *file;
     char *buffer;
     int *intArray;
-    long fileLength;
+    int fileLength;
     size_t bytesRead, i;
 
     // Open the file for reading
@@ -311,19 +147,180 @@ int* readFileAndConvertToIntArray(const char *filename, long *arraySize) {
     return intArray;
 }
 
-void escrever_vetor_no_arquivo(expansao var, const char *nome_arquivo) {
+void writeArrayToFile(expansion compressedString, const char *filename) {
     // Abre o arquivo para escrita
-    FILE *arquivo = fopen(nome_arquivo, "w");
-    if (arquivo == NULL) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
         perror("Erro ao abrir o arquivo");
         return;
     }
 
     // Escreve os elementos do vetor no arquivo
-    for (int i = 0; i < var.tam; i++) {
-        fprintf(arquivo, "%c", (char) var.ptr[i]);
+    for (int i = 0; i < compressedString.size; i++) {
+        fprintf(file, "%c", (char) compressedString.ptr[i]);
     }
 
     // Fecha o arquivo
-    fclose(arquivo);
+    fclose(file);
+}
+
+void swapPointers(int **ptr1, int **ptr2){
+    int *temp = *ptr1;
+    *ptr1 = *ptr2;
+    *ptr2 = temp;
+}
+
+void resizeArray(int **ptr, int currentSize){
+    *ptr = realloc(*ptr, 2*currentSize*sizeof(int));
+}
+
+
+PairCount recordPairs(int *array, int arraySize, Hash *h){
+    int pair[2];
+    int pairRepetitions;
+
+    PairCount pair_max = {0,0,0};
+    for (int i = 0; i < arraySize-1; i++){
+        pair[0] = array[i]; pair[1] = array[i+1];
+        pairRepetitions = incrementa_valor_hash(h, pair);
+        if (pairRepetitions > pair_max.count){
+            pair_max.pair.A = pair[0]; pair_max.pair.B = pair[1];
+            pair_max.count = pairRepetitions;
+        }
+    }
+    return pair_max;
+}
+
+int updateString(int *array, int arraySize, int *aux, Pair rule, int nonTerminal){
+    int indexV = 0; 
+    int indexAux = 0; 
+    while ( indexV < arraySize-1){
+        if ((array[indexV] == rule.A) && (array[indexV+1] == rule.B)){
+            aux[indexAux++] = nonTerminal;
+            indexV = indexV + 2;
+        }
+        else aux[indexAux++] = array[indexV++];
+    }
+    
+    if (indexV==arraySize-1){ //o último inteiro pode ter ficado de fora.
+        aux[indexAux] = array[indexV];
+        indexAux++;
+    } 
+
+    return indexAux;//novo tamanho
+}
+
+
+
+expansion* expander(Pair *grammar, int grammarSize){
+    expansion *expansions = (expansion*) malloc(grammarSize*sizeof(expansion));
+    for (int i = 0; i < grammarSize; i++){
+        expansions[i] = expandRule(expansions,grammar[i]);
+    }
+    return expansions;
+}
+
+expansion expandRule(expansion *expansions, Pair rule){
+    int index;
+    int expansionSizeA = 1;
+    if (rule.A < 0){
+        index = -rule.A-1;
+        expansionSizeA=expansions[index].size;
+    }
+
+    int expansionSizeB = 1;
+    if (rule.B < 0){
+        index = -rule.B-1;
+        expansionSizeB=expansions[index].size;
+    }
+
+    int size_aux = expansionSizeA + expansionSizeB;
+
+    int *aux = (int*) malloc(size_aux*sizeof(int));
+
+    if (rule.A<0){
+        index = -rule.A-1;
+        for (int i = 0; i < expansionSizeA; i++){
+            aux[i] = expansions[index].ptr[i];
+        }  
+    }
+    else{
+        aux[0] = rule.A;
+    } 
+    
+
+    if (rule.B<0){
+        index = -rule.B-1;
+        for (int i = 0; i < expansionSizeB; i++){
+            aux[expansionSizeA+i] = expansions[index].ptr[i];
+        } 
+    }
+    else{
+        aux[expansionSizeA] = rule.B;
+    } 
+    expansion exp;
+    exp.size = size_aux;
+    exp.ptr = aux;
+    return exp;
+}
+
+
+expansion decompressor(int *compressedString, int arraySize, Pair *grammar, int grammarSize){
+    expansion *expansions = expander(grammar, grammarSize);
+    int size_aux = arraySize; 
+    int *aux = (int*) malloc(size_aux*sizeof(int)); //o tamanho pode ser futuramente aumentado com realloc
+    int i,j=0;
+    int grammarIndex, expansionSize;
+    for (i = 0; i < arraySize; i++){
+        if (compressedString[i]<0){
+            grammarIndex = -compressedString[i]-1;
+            expansionSize = expansions[grammarIndex].size;
+            for (int k = 0; k < expansionSize; k++){
+                if (j==size_aux){
+                    size_aux*=2;
+                    resizeArray(&aux,size_aux);
+                }
+                aux[j++] = expansions[grammarIndex].ptr[k];
+            }
+            
+        }
+        else {
+            if (j==size_aux){
+                size_aux*=2;
+                resizeArray(&aux,size_aux);
+            }
+            aux[j++] = compressedString[i];
+        }
+    }
+    free(expansions);
+    expansion exp;
+    //Talvez eu possa usar um resizeArray(&aux, j) aqui...
+    exp.size = j; exp.ptr=aux;
+    return exp;
+}
+
+
+void printCompressedString(expansion compressedString){
+    int size = compressedString.size;
+    int *V = compressedString.ptr;
+    printf("String comprimida: ");
+    for (int i = 0; i < size; i++)
+    if (V[i] < 0){
+        printf("N%d",-V[i]);
+    }
+    else printf("%c",(char) V[i]);
+    printf("\n");
+}
+
+void printGrammar(Pair *grammar, int grammarSize){
+    for (int i = 0; i < grammarSize; i++){
+        if (grammar[i].A < 0){
+            printf("N%d -> N%d", i+1, -grammar[i].A);
+        }
+        else printf("N%d -> %c", i+1, (char) grammar[i].A);
+        if (grammar[i].B < 0){
+            printf("N%d\n", -grammar[i].B);
+        }
+        else printf("%c\n", (char) grammar[i].B);
+    }
 }
