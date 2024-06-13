@@ -30,21 +30,47 @@ expansion decompressor(int *compressedString, int arraySize, Pair *grammar, int 
 void printCompressedString(expansion compressedString);
 void printGrammar(Pair *grammar, int grammarSize);
 
+//TODO: argc, argv
 int main(){
     int sizeV;
     int *V = readFileAndConvertToIntArray("input.txt", &sizeV);
     if (V == NULL) {
         return 1;  // Erro
     }
+  
+    //TODO: optarg
+    //./repair -c (compress)
+    //./repair -d (decompress)
+    //
+    //saida => input.re32 (compressed)
+
+    //TASK 1: 
+    //TODO: taxa de compressao = |arquivo comprimido|/|arquivo original|
+    //
+    //t1 => input.re32 guarda inteiros de 32 bits
+    //
+    //t2 => input.re16 guarda inteiros de 16 bits (se o maior couber em 16 bits)
+    //
+    //t3 => input.re8 ..
+    //
+    //t? => input.reiv guarda inteiros de tamanho V, em V representa o maior int necessário
+
+    //TASK 2:
+    //TODO: medir o tempo de execução compressão e descompressão
+
+    //TASK 3:
+    //TODO: medir o pico de memória utilizada durante a compressão e descompressão
+
+    //V2: discutir a melhoria do Valina
 
     int *aux = (int*) malloc(sizeV*sizeof(int)); //vai ser usado para auxiliar a atualizar V a cada iteração
     Pair *grammar = (Pair*) malloc(sizeV*sizeof(Pair));
     
-    PQ *pq = pq_criar(100);
+    PQ *pq = pq_criar(10000);//TODO: corrigir
     int nonTerminal = -1; //guarda o "nome" do símbolo não-terminal. 
     int numRules = 0; //numero de regras da gramatica
-    Hash *h1 = criar_hash(100);
-    Hash *h2 = criar_hash(100);
+    Hash *h1 = criar_hash(10000);
+    Hash *h2 = criar_hash(10000);
     recordPairsFirstIteration(V, sizeV, h1);//conta os pares na primeira iteração do RePair
     insertPairsPQ(h1, pq); //insere todos os pares numa fila de prioridade
     destruir_hash(&h1); 

@@ -32,6 +32,8 @@ void sobe_no_heap(PQ *p, int pos) {
 }
 
 void pq_adicionar(PQ *p, pq_item item) { 
+    //TODO
+    if(p->n > p->tam) return;
     p->dados[p->n] = item;
     p->n++;
     sobe_no_heap(p, p->n - 1);

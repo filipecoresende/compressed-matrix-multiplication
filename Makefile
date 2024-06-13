@@ -1,4 +1,6 @@
 CFLAGS= -Wall -Werror
+#valgrind
+#CFLAGS += -g -O0
 LIB = lib
 
 all: repair
