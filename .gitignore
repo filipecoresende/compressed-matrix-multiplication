@@ -35,5 +35,5 @@ config.js
 test.py
 test.c
 *.o
-decompressed_string.txt
+decompressedString.txt
 repair
