@@ -8,24 +8,18 @@
 
 PQ* pq_criar(int tam){
     PQ *p = (PQ*) malloc(sizeof(PQ));
-    p->dados = (t_item*) malloc(tam*sizeof(t_item));
+    p->dados = (pq_item*) malloc(tam*sizeof(pq_item));
     p->n=0;
     p->tam=tam;
     return p;
-}
-
-void pq_destruir(PQ **p){
-    free((*p)->dados);
-    free(*p);
-    *p=NULL;
 }
 
 int pq_vazia(PQ *p){ 
     return p->n == 0;
 }
 
-void swap(t_item *ptr1, t_item *ptr2){
-    t_item aux = *ptr1;
+void swap(pq_item *ptr1, pq_item *ptr2){
+    pq_item aux = *ptr1;
     *ptr1=*ptr2;
     *ptr2=aux;
 }
@@ -37,7 +31,7 @@ void sobe_no_heap(PQ *p, int pos) {
     } 
 }
 
-void pq_adicionar(PQ *p, t_item item) { 
+void pq_adicionar(PQ *p, pq_item item) { 
     p->dados[p->n] = item;
     p->n++;
     sobe_no_heap(p, p->n - 1);
@@ -56,8 +50,8 @@ void desce_no_heap(PQ *p, int pos){
     }
 }
 
-t_item pq_extrai_maximo(PQ *p){
-    t_item item = p->dados[0];
+pq_item pq_extrai_maximo(PQ *p){
+    pq_item item = p->dados[0];
     swap(&p->dados[p->n-1],&p->dados[0]);
     p->n--;
     desce_no_heap(p,0);
@@ -66,7 +60,7 @@ t_item pq_extrai_maximo(PQ *p){
 
 //extra
 void imprimir_pq(PQ *p){
-    t_item *aux = p->dados;
+    pq_item *aux = p->dados;
     
     for (int i = 0; i < p->n; i++){
         printf("%d:  (%d, %d):%d\n", i, aux[i].chave[0], aux[i].chave[1], aux[i].dado);

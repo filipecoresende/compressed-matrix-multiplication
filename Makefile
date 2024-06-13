@@ -11,7 +11,7 @@ repair: repair.c $(LIB)/hash.o $(LIB)/lista_ligada.o $(LIB)/pq_heap.o
 	gcc $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(LIB)/*.o repair
+	rm -rf $(LIB)/*.o repair decompressedString.txt
 
 
 

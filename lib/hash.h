@@ -13,10 +13,10 @@ Hash* criar_hash(int M);
 void destruir_hash(Hash **p);
 
 void inserir_hash(Hash *p, int chave[2], int dado);
-//void remover_hash(Hash *p, int chave[2]);
+void remover_elemento_hash(Hash *p, int chave[2]);
 
 int buscar_hash(Hash *p, int chave[2]);//retorna -1 se nao encontrar
 void imprimir_hash(Hash *p);
 
-int incrementa_valor_hash(Hash *p, int chave[2]);
+void incrementa_valor_hash(Hash *p, int chave[2], int incremento);
 #endif

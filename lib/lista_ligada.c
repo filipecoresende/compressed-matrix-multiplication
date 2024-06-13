@@ -53,20 +53,37 @@ void imprimir_lista(No *L){
     printf("NULL\t");
 }
 
-int incrementa_valor_lista(No **L, int chave[2]){
+void incrementa_valor_lista(No **L, int chave[2], int incremento){
     No *aux = *L;
     while (aux!=NULL){
         if ((aux->chave[0] == chave[0]) && (aux->chave[1] == chave[1])){
-            aux->dado++;
-            return aux->dado;
+            aux->dado = aux->dado+incremento;
         } 
         aux = aux->prox;
     }
     No *q = (No*) malloc(sizeof(No));
     q->chave[0] = chave[0];
     q->chave[1] = chave[1];
-    q->dado = 1;
+    q->dado = incremento;
     q->prox = *L;
     *L = q;
-    return 1;
+}
+
+void remover_elemento(No **L, int chave[2]){
+    No* q = *L;
+    if (q==NULL) return;
+    if (q->chave[0]==chave[0] && q->chave[1]==chave[1]) {
+        *L=q->prox;
+        free(q);
+        return;
+    }
+    while (q->prox!=NULL){
+        if (q->prox->chave[0]==chave[0] && q->prox->chave[1]==chave[1])
+            break;
+        q=q->prox; 
+    }
+    if (q->prox==NULL) return;
+    No* tmp = q->prox;
+    q->prox = tmp->prox;
+    free(tmp);
 }

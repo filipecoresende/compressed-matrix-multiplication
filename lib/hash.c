@@ -45,12 +45,12 @@ void inserir_hash(Hash *p, int chave[2], int dado){
     p->vetor[n] = inserir_lista(p->vetor[n], chave, dado);
 }
 
-/*
-void remover_hash(Hash *p, int chave){
+
+void remover_elemento_hash(Hash *p, int chave[2]){
     int n = hashing(chave, p->M);
-    p->vetor[n] = remover_lista(p->vetor[n], chave);
+    remover_elemento(&p->vetor[n], chave);
 }
-*/
+
 
 int buscar_hash(Hash *p, int chave[2]){
     int n = hashing(chave, p->M);
@@ -66,8 +66,8 @@ void imprimir_hash(Hash *p){
     }
 }
 
-int incrementa_valor_hash(Hash *p, int chave[2]){
+void incrementa_valor_hash(Hash *p, int chave[2], int incremento){
     int n = hashing(chave, p->M);
-    return incrementa_valor_lista(&p->vetor[n], chave);
+    incrementa_valor_lista(&p->vetor[n], chave, incremento);
 }
 

@@ -20,6 +20,8 @@ void imprimir_lista(No *L);
 
 int buscar_valor(No *L, int chave[2]);
 
-int incrementa_valor_lista(No **L, int chave[2]);
+void incrementa_valor_lista(No **L, int chave[2], int incremento);
+
+void remover_elemento(No **L, int chave[2]);
 
 #endif
