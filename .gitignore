@@ -1,0 +1,76 @@
+# Compiled object files
+*.o
+
+# Precompiled Headers
+*.gch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executable files
+*.exe
+*.out
+*.app
+
+# Debug files
+*.dSYM/
+*.stackdump
+
+# Generated files
+*.gen.c
+*.gen.h
+
+# Backup files
+*~
+*.swp
+*.bak
+
+# Directories
+build/
+dist/
+Debug/
+Release/
+
+# Logs
+*.log
+
+# IDE specific files (Add or remove based on your IDE)
+# Code::Blocks
+*.layout
+*.depend
+
+# Eclipse
+.project
+.cproject
+
+# JetBrains
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CMakeLists.txt.user
+
+# Makefile specific files
+Makefile.in
+Makefile~
+
+# Others
+tags
+TAGS
+cscope.*
+
+# Compressed texts
+*.re8
+*.re16
+*.re32
