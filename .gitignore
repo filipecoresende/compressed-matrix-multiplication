@@ -74,3 +74,6 @@ cscope.*
 *.re8
 *.re16
 *.re32
+
+# macOS specific files
+.DS_Store
