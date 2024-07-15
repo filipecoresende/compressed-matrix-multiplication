@@ -1,15 +1,50 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+#include <queue>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
-#include <limits.h>
+#include <climits>
+#include <chrono>
 
-#include "lib/hash.h"
-#include "lib/pq_heap.h"
+
+using namespace std;
+
 
 typedef struct { 
     int A, B;   
 } Pair; 
+
+// Define the hash function for Pair
+struct PairHash {
+    size_t operator()(const Pair& p) const {
+        // Combine the hash values of the two integers
+        return hash<int>()(p.A) ^ (hash<int>()(p.B) << 1);
+    }
+};
+
+// Define the equality operator for Pair
+struct PairEqual {
+    bool operator()(const Pair& lhs, const Pair& rhs) const {
+        return lhs.A == rhs.A && lhs.B == rhs.B;
+    }
+};
+
+// Type alias for the hash table
+using Hash = unordered_map<Pair, int, PairHash, PairEqual>;
+
+// Define the custom comparator for the priority queue
+struct Compare {
+    bool operator()(const pair<Pair, int>& lhs, const pair<Pair, int>& rhs) {
+        return lhs.second < rhs.second; // max-heap based on count
+    }
+};
+
+// Priority queue type alias
+using PQ = priority_queue<pair<Pair, int>, vector<pair<Pair, int>>, Compare>;
+
 
 typedef struct {
     int size;
@@ -23,10 +58,10 @@ void swapPointers(int **ptr1, int **ptr2);
 void resizeArray(int **ptr, int newSize);
 void resizeGrammar(Pair **grammar, int newSize);
 
-void recordPairsFirstIteration(int *array, int arraySize, Hash *h); //record the pairs in the first iteration
-void recordPairs(int *array, int arraySize, Hash *h1, Hash *h2, int nonTerminal, Pair rule); //records the pairs from the second iteration onwards
+void recordPairsFirstIteration(int *array, int arraySize, Hash& h); //record the pairs in the first iteration
+void recordPairs(int *array, int arraySize, Hash& h1, Hash& h2, int nonTerminal, Pair rule); //records the pairs from the second iteration onwards
 int updateString(int **array, int arraySize, int **aux, Pair rule, int nonTerminal); //produz a "string" com a nova regra e retorna seu novo tamanho
-void insertPairsPQ(Hash *h, PQ *pq); //percorre h, adicionando cada par-frequência à fila pq
+void insertPairsPQ(Hash& h, PQ& pq); //percorre h, adicionando cada par-frequência à fila pq
 expansion* expander(Pair *grammar, int grammarSize); //expande cada símbolo não-terminal da gramática separadamente
 expansion expandRule(expansion *expansions, Pair rule);
 
@@ -39,6 +74,7 @@ void printGrammar(Pair *grammar, int grammarSize);
 void compressFile(const char *inputFileName);
 void decompressFile(const char *inputFilename, const char *outputFilename);
 
+void incrementValueHash(Hash& h, const Pair& pair, int increment);
 
 char* changeExtension(const char* originalFilename, const char* newExtension);
 
@@ -52,6 +88,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
+    auto start = chrono::high_resolution_clock::now();
     while ((opt = getopt(argc, argv, "c:d:")) != -1) {
         switch (opt) {
             case 'c':
@@ -65,6 +102,9 @@ int main(int argc, char **argv) {
                 exit(EXIT_FAILURE);
         }
     }
+    auto end = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
+    cout << "Time taken by function: " << duration.count() << " milliseconds" << endl;
 
     return 0;
 }
@@ -146,79 +186,78 @@ void convertIntArrayToTextFile(int *array, int arraySize, const char *filename) 
     }
 
     fclose(file);
-}
+} 
 
 void swapPointers(int **ptr1, int **ptr2){
     int *temp = *ptr1;
     *ptr1 = *ptr2;
     *ptr2 = temp;
-}
+} 
 
 void resizeArray(int **ptr, int newSize){
-    *ptr = realloc(*ptr, newSize*sizeof(int));
-}
+    *ptr = (int*) realloc(*ptr, newSize*sizeof(int));
+} 
 
 void resizeGrammar(Pair **grammar, int newSize){
-    *grammar = realloc(*grammar, newSize*sizeof(Pair));
+    *grammar = (Pair*) realloc(*grammar, newSize*sizeof(Pair));
 }
 
 
-void recordPairsFirstIteration(int *array, int arraySize, Hash *h){
-    int pair[2];
-
-    for (int i = 0; i < arraySize-1; i++){
-        pair[0] = array[i]; pair[1] = array[i+1];
-        incrementa_valor_hash(h, pair, 1);
+void recordPairsFirstIteration(int *array, int arraySize, Hash& h){
+    for (int i = 0; i < arraySize - 1; ++i) {
+        Pair pair = {array[i], array[i + 1]};
+        incrementValueHash(h, pair, 1);
     }
 }
 
-void recordPairs(int *array, int arraySize, Hash *h1, Hash *h2, int nonTerminal, Pair rule){
-    int pair[2]; 
-    int counter = 0; //Count of consecutive non-terminal elements
+void recordPairs(int *array, int arraySize, Hash& h1, Hash& h2, int nonTerminal, Pair rule){
+    Pair pair; 
+    int counter = 0; // Count of consecutive non-terminal elements
 
     // Handle a possible sequence of non-terminal elements at the beginning
-    while (counter<arraySize && array[counter]==nonTerminal) 
+    while (counter < arraySize && array[counter] == nonTerminal) 
         counter++;
 
-    if (counter > 0){
-        if (counter > 1){
-            pair[0] = nonTerminal ; pair[1] = nonTerminal;
-            incrementa_valor_hash(h1, pair, counter-1);
-            pair[0] = rule.B; pair[1] = rule.A;
-            incrementa_valor_hash(h2, pair, counter-1);
+    if (counter > 0) {
+        if (counter > 1) {
+            pair = {nonTerminal, nonTerminal};
+            incrementValueHash(h1, pair, counter - 1);
+            pair = {rule.B, rule.A};
+            incrementValueHash(h2, pair, counter - 1);
         }
-        if (counter < arraySize){
-            pair[0] = array[counter-1]; pair[1] = array[counter];
-            incrementa_valor_hash(h1, pair, 1);
-            pair[0] = rule.B;
-            incrementa_valor_hash(h2, pair, 1);
+        if (counter < arraySize) {
+            pair = {array[counter - 1], array[counter]};
+            incrementValueHash(h1, pair, 1);
+            pair = {rule.B, array[counter]};
+            incrementValueHash(h2, pair, 1);
         }
     }
 
-    for (int i = counter+1; i < arraySize; i++){ //handle consecutive non-terminal elements
-        if (array[i]!=nonTerminal)
+    for (int i = counter + 1; i < arraySize; i++) { // Handle consecutive non-terminal elements
+        if (array[i] != nonTerminal)
             continue;
-        pair[0] = array[i-1]; pair[1] = array[i];
-        incrementa_valor_hash(h1, pair, 1);
-        pair[1] = rule.A;
-        incrementa_valor_hash(h2, pair, 1);
+        pair = {array[i - 1], array[i]};
+        incrementValueHash(h1, pair, 1);
+        pair = {array[i - 1], rule.A};
+        incrementValueHash(h2, pair, 1);
         counter = 0;
-        while(array[i]==nonTerminal){
+        while (i < arraySize && array[i] == nonTerminal) {
             counter++; 
             i++;
         }
-        if (counter > 1){
-            pair[0] = nonTerminal ; pair[1] = nonTerminal;
-            incrementa_valor_hash(h1, pair, counter-1);
-            pair[0] = rule.B; pair[1] = rule.A;
-            incrementa_valor_hash(h2, pair, counter-1);
+        if (counter > 1) {
+            pair = {nonTerminal, nonTerminal};
+            incrementValueHash(h1, pair, counter - 1);
+            pair = {rule.B, rule.A};
+            incrementValueHash(h2, pair, counter - 1);
         }
-        pair[0] = array[i-1]; pair[1] = array[i];
-        incrementa_valor_hash(h1, pair, 1);
-        pair[0] = rule.B;
-        incrementa_valor_hash(h2, pair, 1);
+        if (i < arraySize) {
+            pair = {array[i - 1], array[i]};
+            incrementValueHash(h1, pair, 1);
+            pair = {rule.B, array[i]};
+            incrementValueHash(h2, pair, 1);
+        }
     }
-
 }
 
 int updateString(int **array, int arraySize, int **aux, Pair rule, int nonTerminal){
@@ -244,18 +283,11 @@ int updateString(int **array, int arraySize, int **aux, Pair rule, int nonTermin
     return indexAux;//new size
 }
 
-void insertPairsPQ(Hash *h, PQ *pq){ 
-    //sei que eu não deveria usar detalhes das implementações dos TAD, mas depois arrumo isso
-    for (int i = 0; i < h->M; i++){
-       No* aux = h->vetor[i];
-       while (aux!=NULL){
-        pq_item x;
-        x.chave[0] = aux->chave[0];
-        x.chave[1] = aux->chave[1];
-        x.dado = aux->dado;
-        pq_adicionar(pq, x);
-        aux=aux->prox;
-       }
+// Adapted insertPairsPQ function
+void insertPairsPQ(Hash& h, PQ& pq) {
+    // Iterate through the hash table and insert elements into the priority queue
+    for (const auto& entry : h) {
+        pq.push({{entry.first.A, entry.first.B},entry.second});
     }
 }
 
@@ -545,17 +577,18 @@ void compressFile(const char *inputFileName){
     int *aux = (int*) malloc(sizeV*sizeof(int)); //helps to update V at each iteration
     int grammarSize = 1000; //this size may be increased if necessary
     Pair *grammar = (Pair*) malloc(grammarSize*sizeof(Pair)); //array of rules (that may be resized in the future)
-    PQ *pq = pq_criar(1000);
+    PQ pq;
     int numRules = 0; 
-    Hash *h1 = criar_hash(1000);
-    Hash *h2 = criar_hash(1000);
+    // Initialize hash maps for pairs
+    Hash h1;
+    Hash h2;
     recordPairsFirstIteration(V, sizeV, h1);//conta os pares na primeira iteração do RePair
     insertPairsPQ(h1, pq); //insere todos os pares numa fila de prioridade
-    destruir_hash(&h1); 
-    pq_item auxPair = pq_extrai_maximo(pq); 
-    Pair maxPair;
-    maxPair.A = auxPair.chave[0]; maxPair.B = auxPair.chave[1];
-    int maxPairCount = auxPair.dado;
+    h1.clear();
+    pair<Pair, int> auxPair = pq.top();
+    pq.pop();
+    Pair maxPair = auxPair.first;
+    int maxPairCount = auxPair.second;
    
 
     while(maxPairCount > 1){
@@ -568,29 +601,33 @@ void compressFile(const char *inputFileName){
         }
 
         sizeV = updateString(&V, sizeV, &aux, maxPair, -numRules);
-        h1 = criar_hash(1000);
         recordPairs(V, sizeV, h1, h2, -numRules, maxPair);
         insertPairsPQ(h1, pq);
-        destruir_hash(&h1);
-        auxPair = pq_extrai_maximo(pq); //guarda o "candidato" a par mais frequente
-        int busca = buscar_hash(h2, auxPair.chave);
+        h1.clear();
+        auxPair = pq.top(); //guarda o "candidato" a par mais frequente
+        pq.pop();
+        Pair keyToFind = auxPair.first;
+        auto it = h2.find(keyToFind);
 
-        while (busca!=-1){ //se busca for -1, isto é, o maxPair não estiver em h2, então podemos prosseguir
-            remover_elemento_hash(h2, auxPair.chave);
-            auxPair.dado = auxPair.dado - busca;
-            if (auxPair.dado > 0) pq_adicionar(pq, auxPair);
-            auxPair = pq_extrai_maximo(pq);//tentando de novo
-            busca = buscar_hash(h2, auxPair.chave);
+        while (it != h2.end()){ 
+            auxPair.second = auxPair.second - it->second;
+            h2.erase(it->first);
+            if (auxPair.second > 0) pq.push(auxPair);
+            auxPair = pq.top();//tentando de novo
+            pq.pop();
+            keyToFind = auxPair.first;
+            it = h2.find(keyToFind);
         }
 
-        maxPair.A = auxPair.chave[0];
-        maxPair.B = auxPair.chave[1];
-        maxPairCount = auxPair.dado;
+        maxPair = keyToFind;
+       
+        maxPairCount = auxPair.second;
+
+        
     }
 
     free(aux);
-    destruir_pq(&pq);
-    destruir_hash(&h2);
+    h2.clear();
 
     writeBinaryFile(inputFileName, V, sizeV, grammar, numRules);
 
@@ -747,4 +784,9 @@ void decompressFile(const char *inputFilename, const char *outputFilename) {
 
 void printUsage(const char *progName) {
     fprintf(stderr, "Usage: %s -c <file_to_compress> | -d <file_to_decompress>\n", progName);
+}
+
+// Function to increment the value associated with a Pair in the hash table
+void incrementValueHash(Hash& h, const Pair& pair, int increment) {
+    h[pair] += increment;
 }
