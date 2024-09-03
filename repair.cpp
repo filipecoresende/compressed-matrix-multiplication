@@ -1,792 +1,631 @@
 #include <iostream>
+#include <fstream>
 #include <unordered_map>
 #include <vector>
-#include <queue>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <unistd.h>
-#include <climits>
-#include <chrono>
+#include <list>
+#include <utility>
+#include <algorithm>
+#include <cmath>
 
+#include <cassert>
+
+#define EMPTY 0
 
 using namespace std;
 
+using Pair = pair<int, int>;
 
-typedef struct { 
-    int A, B;   
-} Pair; 
+typedef struct VectorElement{
+    VectorElement *prev;
+    int symbol;
+    VectorElement *next;
+} VectorElement;
 
-// Define the hash function for Pair
+typedef struct PairRecord{
+    VectorElement *firstAppearance;
+    int pairCount;
+} PairRecord;
+
+
+// Custom hash function for Pair
 struct PairHash {
     size_t operator()(const Pair& p) const {
-        // Combine the hash values of the two integers
-        return hash<int>()(p.A) ^ (hash<int>()(p.B) << 1);
+        return hash<int>()(p.first) ^ (hash<int>()(p.second) << 1);
     }
 };
 
-// Define the equality operator for Pair
+// Custom equality function for Pair
 struct PairEqual {
-    bool operator()(const Pair& lhs, const Pair& rhs) const {
-        return lhs.A == rhs.A && lhs.B == rhs.B;
+    bool operator()(const Pair& p1, const Pair& p2) const {
+        return p1.first == p2.first && p1.second == p2.second;
     }
 };
 
-// Type alias for the hash table
-using Hash = unordered_map<Pair, int, PairHash, PairEqual>;
+typedef struct{
+    list<PairRecord>::iterator PairRecordIterator;
+    bool flag;
+} HashTableEntry;
 
-// Define the custom comparator for the priority queue
-struct Compare {
-    bool operator()(const pair<Pair, int>& lhs, const pair<Pair, int>& rhs) {
-        return lhs.second < rhs.second; // max-heap based on count
+using HashTable = unordered_map<Pair, HashTableEntry, PairHash, PairEqual>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void readFileAndStoreCharacters(const string& filename, vector<VectorElement>& vector);
+void incrementPairCountFirstIteration(VectorElement& vectorElement, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector);
+void iterateFirstTime(vector<VectorElement>& symbolVector, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector);
+void rearrangePriorityQueue(vector<list<PairRecord>>& priorityQueueVector, HashTable& hashTable);
+VectorElement* getMostFrequentPair(vector<list<PairRecord>>& priorityQueueVector, HashTable& hashTable, vector<VectorElement>& symbolVector);
+Pair getPairFromPosition(VectorElement* location, vector<VectorElement>& symbolVector);
+VectorElement* replacePairs(VectorElement* maxPairFirstAppearance, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, vector<VectorElement>& symbolVector, int newSymbol);
+VectorElement* getNextNonEmptyPosition(VectorElement* currentPosition, vector<VectorElement>& symbolVector);
+VectorElement* getPreviousNonEmptyPosition(VectorElement* currentPosition, vector<VectorElement>& symbolVector);
+void pairContextHandler(VectorElement* ptr, vector<VectorElement>& symbolVector, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, int newSymbol);
+void decreasePairCount(const Pair& pair, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector);
+void createPairRecordIfNecessary(const Pair& newPair, const Pair& auxPair, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector);
+void handleNewPairs(VectorElement* ptr, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, vector<VectorElement>& symbolVector, Pair replacedPair);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//reads from a text file and produces the first version of the symbol vector
+void readFileAndStoreCharacters(const string& filename, vector<VectorElement>& vector) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error opening file: " << filename << endl;
+        return;
     }
-};
 
-// Priority queue type alias
-using PQ = priority_queue<pair<Pair, int>, vector<pair<Pair, int>>, Compare>;
+    char ch;
 
-
-typedef struct {
-    int size;
-    int *ptr;
-} expansion; //expansion of nonterminals
-
-int* readFileAndConvertToIntArray(const char *filename, int *arraySize);
-void convertIntArrayToTextFile(int *array, int arraySize, const char *filename); 
-
-void swapPointers(int **ptr1, int **ptr2); 
-void resizeArray(int **ptr, int newSize);
-void resizeGrammar(Pair **grammar, int newSize);
-
-void recordPairsFirstIteration(int *array, int arraySize, Hash& h); //record the pairs in the first iteration
-void recordPairs(int *array, int arraySize, Hash& h1, Hash& h2, int nonTerminal, Pair rule); //records the pairs from the second iteration onwards
-int updateString(int **array, int arraySize, int **aux, Pair rule, int nonTerminal); //produz a "string" com a nova regra e retorna seu novo tamanho
-void insertPairsPQ(Hash& h, PQ& pq); //percorre h, adicionando cada par-frequência à fila pq
-expansion* expander(Pair *grammar, int grammarSize); //expande cada símbolo não-terminal da gramática separadamente
-expansion expandRule(expansion *expansions, Pair rule);
-
-void writeBinaryFile(const char *inputFileName, int *compressedString, int compressedStringSize, Pair *grammar, int grammarSize);
-expansion decompressor(int *compressedString, int compressedStringSize, Pair *grammar, int grammarSize); 
-
-void printCompressedString(expansion compressedString);
-void printGrammar(Pair *grammar, int grammarSize);
-
-void compressFile(const char *inputFileName);
-void decompressFile(const char *inputFilename, const char *outputFilename);
-
-void incrementValueHash(Hash& h, const Pair& pair, int increment);
-
-char* changeExtension(const char* originalFilename, const char* newExtension);
-
-void printUsage(const char *progName);
-
-int main(int argc, char **argv) {
-    int opt;
-
-    if (argc < 2) {
-        printUsage(argv[0]);
-        exit(EXIT_FAILURE);
+    while (file.get(ch)) {
+        int charAsInt = static_cast<int>(ch);
+        vector.emplace_back(VectorElement{nullptr, charAsInt, nullptr});
     }
 
-    auto start = chrono::high_resolution_clock::now();
-    while ((opt = getopt(argc, argv, "c:d:")) != -1) {
-        switch (opt) {
-            case 'c':
-                compressFile(optarg);
-                break;
-            case 'd':
-                decompressFile(optarg, "decompressedString.txt");
-                break;
-            default:
-                printUsage(argv[0]);
-                exit(EXIT_FAILURE);
+    file.close();
+}
+
+
+//Increments the count of a pair and links it to the next occurrence of the 
+// pair in the symbol vector
+void incrementPairCountFirstIteration(VectorElement& vectorElement, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector){
+    
+    const VectorElement& elementOnTheRight = *(&vectorElement + 1);
+    int leftSymbol = vectorElement.symbol;
+    int rightSymbol = elementOnTheRight.symbol;
+    const Pair pair = {leftSymbol, rightSymbol};
+    auto hashTableIterator = hashTable.find(pair);
+
+    if (hashTableIterator == hashTable.end()){
+        //inserts a new pair record in the first list of the priority queue
+        priorityQueueVector[0].emplace_front(PairRecord{&vectorElement, 1});
+        hashTable.emplace(pair, HashTableEntry{priorityQueueVector[0].begin(), false});
+        return;
+    }
+
+    PairRecord& pairRecord = *(hashTableIterator->second.PairRecordIterator);
+    pairRecord.pairCount++;
+    VectorElement& nextOcurrenceOfThePair = *pairRecord.firstAppearance; 
+    nextOcurrenceOfThePair.prev = &vectorElement; 
+    vectorElement.next = &nextOcurrenceOfThePair;
+    pairRecord.firstAppearance = &vectorElement;
+}
+
+//performs the first iteration (it's done backwards) through the symbol vector 
+//and records the counts of the pairs.
+void iterateFirstTime(vector<VectorElement>& symbolVector, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector){
+
+     for (auto it = symbolVector.rbegin() + 1; it != symbolVector.rend(); ++it){
+        incrementPairCountFirstIteration(*it, hashTable, priorityQueueVector);
+     }
+
+
+ }
+
+//Puts each pair record produced in the first iteration in the appropriate list of the priority queue
+void rearrangePriorityQueue(vector<list<PairRecord>>& priorityQueueVector, HashTable& hashTable){
+    auto& initialList = priorityQueueVector[0];
+    auto it = hashTable.begin();
+    while (it != hashTable.end()){
+        const auto& pairRecordIterator = it->second.PairRecordIterator;
+        int count = pairRecordIterator->pairCount;
+        if (count == 1){
+            initialList.erase(pairRecordIterator);
+            it = hashTable.erase(it);
+        }
+        else if (count == 2)
+            ++it;
+        else if (count < priorityQueueVector.size() + 1) {
+            auto& destinationList = priorityQueueVector[count - 2];
+            destinationList.splice(destinationList.end(), initialList, pairRecordIterator);
+            ++it;
+        }
+        else {
+            auto& destinationList = priorityQueueVector[priorityQueueVector.size() - 1];
+            destinationList.splice(destinationList.end(), initialList, pairRecordIterator);
+            ++it;
         }
     }
-    auto end = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
-    cout << "Time taken by function: " << duration.count() << " milliseconds" << endl;
+
+}
+
+VectorElement* getMostFrequentPair(vector<list<PairRecord>>& priorityQueueVector, HashTable& hashTable, vector<VectorElement>& symbolVector){
+    int i;
+
+    for (i = priorityQueueVector.size() - 1; i >= 0; i--){
+        if (!priorityQueueVector[i].empty())
+            break;
+    }
+
+    if (i == -1)
+        return nullptr;
+
+
+    auto& listWithMaxPair = priorityQueueVector[i];
+
+    list<PairRecord>::iterator itMaxPair;
+
+    
+    if (i == priorityQueueVector.size() - 1){
+        // Custom comparator to compare pairCount of PairRecord
+        auto comp = [](const PairRecord& a, const PairRecord& b) {
+            return a.pairCount < b.pairCount;
+        };
+        itMaxPair = max_element(listWithMaxPair.begin(), listWithMaxPair.end(), comp);
+    }
+    else
+        itMaxPair = listWithMaxPair.begin();
+
+    if (itMaxPair->pairCount == 631169)
+        cout << 1 << endl;
+    
+
+    VectorElement *firstAppearanceMaxPair = itMaxPair->firstAppearance;
+
+    listWithMaxPair.erase(itMaxPair); 
+
+    const Pair maxPair = getPairFromPosition(firstAppearanceMaxPair, symbolVector);
+    auto itHashTable = hashTable.find(maxPair);
+
+
+    hashTable.erase(itHashTable);
+
+    return firstAppearanceMaxPair;
+
+}
+
+Pair getPairFromPosition(VectorElement* location, vector<VectorElement>& symbolVector){
+    int leftSymbol = location->symbol;
+    VectorElement* rightSymbolLocation = getNextNonEmptyPosition(location, symbolVector);
+    int rightSymbol = rightSymbolLocation->symbol;
+    return Pair{leftSymbol, rightSymbol};
+
+}
+
+VectorElement* replacePairs(VectorElement* maxPairFirstAppearance, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, vector<VectorElement>& symbolVector, int newSymbol){
+
+    auto currentPosition = maxPairFirstAppearance;
+    VectorElement* lastOccurrence; //holds the last occurrence of the pair being replaced
+    while(currentPosition != nullptr){
+        if (currentPosition->symbol == EMPTY){
+            currentPosition = currentPosition->next;
+        }
+
+        if (currentPosition == nullptr) break;
+
+        pairContextHandler(currentPosition, symbolVector, hashTable, priorityQueueVector, newSymbol);
+
+        currentPosition->symbol = newSymbol; 
+        
+
+        VectorElement* rightSymbolPosition = getNextNonEmptyPosition(currentPosition, symbolVector);
+        rightSymbolPosition->symbol = EMPTY;
+        VectorElement *aux = getNextNonEmptyPosition(rightSymbolPosition, symbolVector);
+        (currentPosition+1)->next = aux;
+
+        if (aux != nullptr)
+            (aux-1)->prev = currentPosition;
+        lastOccurrence = currentPosition;
+        currentPosition = currentPosition->next;        
+    } 
+
+
+    return lastOccurrence;
+}
+
+//returns nullptr in case the current position is the last non-empty position in the symbol vector
+VectorElement* getNextNonEmptyPosition(VectorElement* currentPosition, vector<VectorElement>& symbolVector){ //current position is never the last in the vector
+    if (currentPosition == &symbolVector[symbolVector.size() - 1])
+        return nullptr;
+    VectorElement *nextNonEmptyPosition = currentPosition + 1;
+    if (nextNonEmptyPosition->symbol == EMPTY)
+        nextNonEmptyPosition = nextNonEmptyPosition->next;
+    
+
+    return nextNonEmptyPosition;
+}
+
+//returns nullptr in case the current position is the first non-empty position in the symbol vector
+VectorElement* getPreviousNonEmptyPosition(VectorElement* currentPosition, vector<VectorElement>& symbolVector){
+    if (currentPosition == &symbolVector[0])
+        return nullptr;
+    VectorElement *previousNonEmptyPosition = currentPosition - 1;
+    if (previousNonEmptyPosition->symbol == EMPTY)
+        previousNonEmptyPosition = previousNonEmptyPosition->prev;
+    return previousNonEmptyPosition;
+}
+
+void pairContextHandler(VectorElement* ptr, vector<VectorElement>& symbolVector, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, int newSymbol){
+    //Suppose the pair being replace is "ab", and its context in a given appearance is "xaby"
+    //The counts of pairs xa and by must be decreased
+    //Records for the new pairs xA and Ay (A is the new symbol) must be created if they appear at least twice in the sequence,
+    //but the number of occurrences for them will not be counted yet.
+
+
+    
+    VectorElement* pairContext[4];
+    pairContext[0] = getPreviousNonEmptyPosition(ptr, symbolVector);
+    pairContext[1] = ptr;
+    pairContext[2] = getNextNonEmptyPosition(pairContext[1], symbolVector);
+    pairContext[3] = getNextNonEmptyPosition(pairContext[2], symbolVector);
+
+
+
+    
+
+    if (pairContext[0] != nullptr){
+        VectorElement* previousOcurrence = pairContext[0]->prev;
+        VectorElement* nextOcurrence = pairContext[0]->next;
+        if (previousOcurrence != nullptr) previousOcurrence->next = nextOcurrence;
+        else {
+            Pair pair = Pair{pairContext[0]->symbol, pairContext[1]->symbol};
+            auto itHashTable = hashTable.find(pair);
+            if (itHashTable != hashTable.end()){
+                itHashTable->second.PairRecordIterator->firstAppearance = nextOcurrence;
+            }
+        }
+        if (nextOcurrence != nullptr) nextOcurrence->prev = previousOcurrence;
+        Pair pairThatDisappear = {pairContext[0]->symbol, pairContext[1]->symbol};
+        
+
+        decreasePairCount(pairThatDisappear, hashTable, priorityQueueVector); //decrease the count for "xa"
+        Pair newPair = {pairContext[0]->symbol, newSymbol};
+        createPairRecordIfNecessary(newPair, pairThatDisappear,  hashTable, priorityQueueVector); //check if a record must be created for xA
+        
+    }
+    
+
+    if (pairContext[3] != nullptr){
+        VectorElement* previousOcurrence = pairContext[2]->prev;
+        VectorElement* nextOcurrence = pairContext[2]->next;
+        if (previousOcurrence != nullptr) previousOcurrence->next = nextOcurrence;
+        else {
+            Pair pair = Pair{pairContext[2]->symbol, pairContext[3]->symbol};
+            auto itHashTable = hashTable.find(pair);
+            if (itHashTable != hashTable.end())
+                itHashTable->second.PairRecordIterator->firstAppearance = nextOcurrence;
+        }
+        if (nextOcurrence != nullptr) nextOcurrence->prev = previousOcurrence;
+        Pair pairThatDisappear = {pairContext[2]->symbol, pairContext[3]->symbol};
+        decreasePairCount(pairThatDisappear, hashTable, priorityQueueVector);//decrease the count for "by"
+        Pair newPair = {newSymbol, pairContext[3]->symbol};
+        createPairRecordIfNecessary(newPair, pairThatDisappear, hashTable, priorityQueueVector); //check if a record must be created for Ay
+    }
+    
+     
+}
+
+
+void decreasePairCount(const Pair& pair, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector){
+    auto itHashTable = hashTable.find(pair);
+    if (itHashTable == hashTable.end())
+        return;
+
+
+    auto itPairRecord = itHashTable->second.PairRecordIterator;
+
+
+    int& currentCount = itPairRecord->pairCount;
+
+    currentCount--;
+
+    
+
+
+    if (currentCount == 1){     
+        priorityQueueVector[0].erase(itPairRecord);
+        hashTable.erase(itHashTable);
+    }
+
+    
+    else if (currentCount <= priorityQueueVector.size()){
+        list<PairRecord>& listWithPair = priorityQueueVector[currentCount - 1];
+        list<PairRecord>& destinationList = priorityQueueVector[currentCount - 2];
+        destinationList.splice(destinationList.end(), listWithPair, itPairRecord);
+    }
+
+
+
+}
+
+void createPairRecordIfNecessary(const Pair& newPair, const Pair& auxPair, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector){
+    auto itHashTable = hashTable.find(newPair);
+    if (itHashTable != hashTable.end())
+        return;
+
+    itHashTable = hashTable.find(auxPair);
+    if (itHashTable == hashTable.end())
+        return;
+
+    bool& flag = itHashTable->second.flag;
+    if (flag){
+        priorityQueueVector[0].emplace_front(PairRecord{nullptr, 0});
+        hashTable.emplace(newPair, HashTableEntry{priorityQueueVector[0].begin(), false});
+    }
+
+    flag = !flag;
+
+}
+
+//Iterates through the vector backwards
+void handleNewPairs(VectorElement* ptr, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, vector<VectorElement>& symbolVector, Pair replacedPair){
+    VectorElement* currentPosition = ptr;
+
+    while (currentPosition != nullptr){
+
+        if (currentPosition->symbol == EMPTY){
+            currentPosition = currentPosition->prev;
+            continue;
+        }
+
+
+
+        VectorElement* elementOnTheLeft = getPreviousNonEmptyPosition(currentPosition, symbolVector);
+        Pair auxPair; //it's used to assign "false" to the flags
+        if (elementOnTheLeft != nullptr){
+            auxPair = Pair{elementOnTheLeft->symbol, replacedPair.first};
+            auto itAux = hashTable.find(auxPair);
+            if (itAux != hashTable.end())
+                itAux->second.flag = false;
+
+            elementOnTheLeft->prev = nullptr;
+            elementOnTheLeft->next = nullptr; 
+            Pair pair = {elementOnTheLeft->symbol, currentPosition->symbol};
+            auto itHashTable = hashTable.find(pair);
+            if (itHashTable != hashTable.end()){
+                auto itPairRecord = itHashTable->second.PairRecordIterator;
+                auto &pairRecord = *itPairRecord;
+                elementOnTheLeft->next = pairRecord.firstAppearance;
+                if (pairRecord.firstAppearance != nullptr)
+                    (pairRecord.firstAppearance)->prev = elementOnTheLeft;
+                pairRecord.firstAppearance = elementOnTheLeft;
+                auto& count = pairRecord.pairCount;
+                count++;
+                if (count > 2 && count < (priorityQueueVector.size() + 2)){
+                    auto& listWithPair = priorityQueueVector[count - 3];
+                    auto& destinationList = priorityQueueVector[count - 2];
+                    destinationList.splice(destinationList.end(), listWithPair, itPairRecord);
+                }
+            }
+        }
+
+
+        VectorElement* aux = currentPosition->prev; 
+        currentPosition->prev = nullptr; 
+        currentPosition->next = nullptr; 
+        VectorElement* elementOnTheRight = getNextNonEmptyPosition(currentPosition, symbolVector);
+        if (elementOnTheRight != nullptr){
+            auxPair = Pair{replacedPair.second, elementOnTheRight->symbol};
+            auto itAux = hashTable.find(auxPair);
+            if (itAux != hashTable.end())
+                itAux->second.flag = false;
+
+            Pair pair = {currentPosition->symbol, elementOnTheRight->symbol};
+            auto itHashTable = hashTable.find(pair);
+            if (itHashTable != hashTable.end()){
+                auto itPairRecord = itHashTable->second.PairRecordIterator;
+                auto &pairRecord = *itPairRecord;
+                currentPosition->next = pairRecord.firstAppearance;
+                if (pairRecord.firstAppearance != nullptr)
+                    pairRecord.firstAppearance->prev = currentPosition;
+                pairRecord.firstAppearance = currentPosition;
+                auto& count = pairRecord.pairCount;
+                count++;
+                if (count > 2 && count < (priorityQueueVector.size() + 2)){
+                    auto& listWithPair = priorityQueueVector[count - 3];
+                    auto& destinationList = priorityQueueVector[count - 2];
+                    destinationList.splice(destinationList.end(), listWithPair, itPairRecord);
+                }
+            }
+        }
+
+        currentPosition = aux;
+    }
+
+
+
+
+    // int sum = 0;
+    // for (VectorElement* i = &symbolVector[0]; i != &symbolVector[0] + symbolVector.size(); i = i+1){
+    //     auto leftPosition = i;
+    //     if (i == nullptr) continue;
+    //     auto rightPosition = getNextNonEmptyPosition(i, symbolVector);
+    //     if (rightPosition == nullptr) break;
+    //     int left = leftPosition->symbol; int right = rightPosition->symbol;
+    //     if (left == -38 && right == -49) sum++;
+    // }
+    // cout << sum << endl;
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int main(){
+
+    
+
+    const string filename = "dataset/dna50MB.txt"; 
+    vector<VectorElement> symbolVector;
+
+    readFileAndStoreCharacters(filename, symbolVector);
+
+
+    
+    size_t priorityQueueVectorSize = ceil(sqrt(symbolVector.size()));
+    HashTable hashTable;
+    vector<list<PairRecord>> priorityQueueVector(priorityQueueVectorSize);
+
+    iterateFirstTime(symbolVector, hashTable, priorityQueueVector);    
+    
+    rearrangePriorityQueue(priorityQueueVector, hashTable);
+
+    int newSymbol = 0;
+    auto maxPairFirstAppearance = getMostFrequentPair(priorityQueueVector, hashTable, symbolVector);
+    while (maxPairFirstAppearance != nullptr){
+
+        newSymbol--;
+        auto maxPair = getPairFromPosition(maxPairFirstAppearance, symbolVector);
+        
+        auto lastOccurrence = replacePairs(maxPairFirstAppearance, hashTable, priorityQueueVector, symbolVector, newSymbol);
+
+
+        handleNewPairs(lastOccurrence, hashTable, priorityQueueVector, symbolVector, maxPair);
+
+        maxPairFirstAppearance = getMostFrequentPair(priorityQueueVector, hashTable, symbolVector);
+            
+    }
+
+    
+    // int newSymbol = 0;
+    // while (maxPairFirstAppearance != nullptr){
+    //     newSymbol--;
+    //     VectorElement* lastOccurrence = replacePairs(maxPairFirstAppearance, hashTable, priorityQueueVector, symbolVector, newSymbol);
+    //     handleNewPairs(lastOccurrence, hashTable, priorityQueueVector, symbolVector);
+    //     break;
+    // }
+    
+    
+    
+    
+
+    // while (maxPairFirstAppearance->next != nullptr){
+    //     cout << static_cast<char>(maxPairFirstAppearance->symbol)<< static_cast<char>((maxPairFirstAppearance+1)->symbol) << endl;
+    //     maxPairFirstAppearance = maxPairFirstAppearance->next;
+    // }
+
+    
+    
+    //replacePairs(maxPairFirstAppearance, hashTable, priorityQueueVector, newSymbol);
+
+    // cout << "testando  symbol vector" << endl;
+    // for (const auto& i : symbolVector)
+    // {   
+    //     if (i.symbol < 0){
+    //         cout << i.symbol;
+    //     }
+    //     else cout << static_cast<char>(i.symbol);      
+    // }
+    
+    // cout << "testando a hash table" << endl;
+    // for (const auto& element: hashTable){
+    //     const auto& pairRecord = *(element.second.PairRecordIterator);
+    //     if (element.first.first > 0) cout << '('<< static_cast<char>(element.first.first);
+    //     else cout << '('<< element.first.first;
+
+    //     if (element.first.second > 0) cout << ", " << static_cast<char>(element.first.second) << "): ";
+    //     else cout << ", " << element.first.second << "): ";
+
+    //     cout << pairRecord.pairCount << endl;
+    // }
+
+    // cout << "O tamanho é " << priorityQueueVectorSize << endl;
+    // cout << "testando a priority queue" << endl;
+    // for (const auto& element: priorityQueueVector[9]){
+    //     cout << element.pairCount << " \n";
+    // }
+
+    // cout << "testando os links entre pares idênticos" << endl;
+    // VectorElement *ptr = &symbolVector[44];
+    // while (ptr->next!=nullptr){
+    //     cout << static_cast<char>(ptr->symbol) << "," << static_cast<char>((ptr+ 1)->symbol) << '\n';
+    //     ptr = ptr->next;
+    // }
+
+    // while (ptr!=nullptr){
+    //     cout << static_cast<char>(ptr->symbol) << "," << static_cast<char>((ptr+ 1)->symbol) << '\n';
+    //     ptr = ptr->prev;
+    // }
+
+
+
+    // cout << "testando os espacos vazios" << endl;
+    // for (auto ptr = &symbolVector[0]; ptr != &symbolVector[0] + symbolVector.size();){
+    //     if (ptr->symbol == EMPTY){
+    //         ptr = ptr->next;
+    //     }
+    //     if (ptr == nullptr) break;
+    //     cout << ptr->symbol << " ";
+    //     ptr = ptr+1;
+    // }    
+
+
+    // cout << "imprimindo tudo" << endl;
+    // for (auto& i: symbolVector) cout << i.symbol << " ";
 
     return 0;
 }
 
-int* readFileAndConvertToIntArray(const char *filename, int *arraySize) {
-    FILE *file;
-    char *buffer;
-    int *intArray;
-    int fileLength;
-    size_t bytesRead, i;
 
-    // Open the file for reading
-    file = fopen(filename, "r");
-    if (file == NULL) {
-        fprintf(stderr, "Could not open %s for reading\n", filename);
-        return NULL;
-    }
 
-    // Determine the file length
-    fseek(file, 0, SEEK_END);
-    fileLength = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    // Allocate memory for the buffer to store the string
-    buffer = (char *)malloc((fileLength + 1) * sizeof(char));
-    if (buffer == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        fclose(file);
-        return NULL;
-    }
-
-    // Read the file into the buffer
-    bytesRead = fread(buffer, sizeof(char), fileLength, file);
-    buffer[fileLength] = '\0';  // Null-terminate the string
-
-    // Close the file
-    fclose(file);
-
-    if (bytesRead != fileLength) {
-        fprintf(stderr, "Reading error\n");
-        free(buffer);
-        return NULL;
-    }
-
-    // Allocate memory for the integer array
-    intArray = (int *)malloc(fileLength * sizeof(int));
-    if (intArray == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        free(buffer);
-        return NULL;
-    }
-
-    // Cast characters to integers and store in the integer array
-    for (i = 0; i < fileLength; ++i) {
-        intArray[i] = (int)buffer[i];
-    }
-
-    // Free the buffer
-    free(buffer);
-
-    // Set the array size
-    *arraySize = fileLength;
-
-    // Return the integer array
-    return intArray;
-}
-
-void convertIntArrayToTextFile(int *array, int arraySize, const char *filename) { 
-    // Opens the file for writing
-    FILE *file = fopen(filename, "w");
-    if (file == NULL) {
-        perror("Error opening the file");
-        return;
-    }
-
-    // Writes the elements of the array to the file
-    for (int i = 0; i < arraySize; i++) {
-        fprintf(file, "%c", (char) array[i]);
-    }
-
-    fclose(file);
-} 
-
-void swapPointers(int **ptr1, int **ptr2){
-    int *temp = *ptr1;
-    *ptr1 = *ptr2;
-    *ptr2 = temp;
-} 
-
-void resizeArray(int **ptr, int newSize){
-    *ptr = (int*) realloc(*ptr, newSize*sizeof(int));
-} 
-
-void resizeGrammar(Pair **grammar, int newSize){
-    *grammar = (Pair*) realloc(*grammar, newSize*sizeof(Pair));
-}
-
-
-void recordPairsFirstIteration(int *array, int arraySize, Hash& h){
-    for (int i = 0; i < arraySize - 1; ++i) {
-        Pair pair = {array[i], array[i + 1]};
-        incrementValueHash(h, pair, 1);
-    }
-}
-
-void recordPairs(int *array, int arraySize, Hash& h1, Hash& h2, int nonTerminal, Pair rule){
-    Pair pair; 
-    int counter = 0; // Count of consecutive non-terminal elements
-
-    // Handle a possible sequence of non-terminal elements at the beginning
-    while (counter < arraySize && array[counter] == nonTerminal) 
-        counter++;
-
-    if (counter > 0) {
-        if (counter > 1) {
-            pair = {nonTerminal, nonTerminal};
-            incrementValueHash(h1, pair, counter - 1);
-            pair = {rule.B, rule.A};
-            incrementValueHash(h2, pair, counter - 1);
-        }
-        if (counter < arraySize) {
-            pair = {array[counter - 1], array[counter]};
-            incrementValueHash(h1, pair, 1);
-            pair = {rule.B, array[counter]};
-            incrementValueHash(h2, pair, 1);
-        }
-    }
-
-    for (int i = counter + 1; i < arraySize; i++) { // Handle consecutive non-terminal elements
-        if (array[i] != nonTerminal)
-            continue;
-        pair = {array[i - 1], array[i]};
-        incrementValueHash(h1, pair, 1);
-        pair = {array[i - 1], rule.A};
-        incrementValueHash(h2, pair, 1);
-        counter = 0;
-        while (i < arraySize && array[i] == nonTerminal) {
-            counter++; 
-            i++;
-        }
-        if (counter > 1) {
-            pair = {nonTerminal, nonTerminal};
-            incrementValueHash(h1, pair, counter - 1);
-            pair = {rule.B, rule.A};
-            incrementValueHash(h2, pair, counter - 1);
-        }
-        if (i < arraySize) {
-            pair = {array[i - 1], array[i]};
-            incrementValueHash(h1, pair, 1);
-            pair = {rule.B, array[i]};
-            incrementValueHash(h2, pair, 1);
-        }
-    }
-}
-
-int updateString(int **array, int arraySize, int **aux, Pair rule, int nonTerminal){
-    //Update the array of integers with a newly created non-terminal
-    int indexV = 0; 
-    int indexAux = 0; 
-    while ( indexV < arraySize-1){
-        if (((*array)[indexV] == rule.A) && ((*array)[indexV+1] == rule.B)){
-            (*aux)[indexAux++] = nonTerminal;
-            indexV = indexV + 2;
-        }
-        else (*aux)[indexAux++] = (*array)[indexV++];
-    }
-    
-    if (indexV == arraySize-1){ //the last integer may have been left out
-        (*aux)[indexAux] = (*array)[indexV];
-        indexAux++;
-    } 
-
-    swapPointers(array, aux);
-    
-
-    return indexAux;//new size
-}
-
-// Adapted insertPairsPQ function
-void insertPairsPQ(Hash& h, PQ& pq) {
-    // Iterate through the hash table and insert elements into the priority queue
-    for (const auto& entry : h) {
-        pq.push({{entry.first.A, entry.first.B},entry.second});
-    }
-}
-
-expansion* expander(Pair *grammar, int grammarSize){
-    //return an array of expansions of the non-terminal symbols of the grammar
-    expansion *expansions = (expansion*) malloc(grammarSize*sizeof(expansion));
-    for (int i = 0; i < grammarSize; i++){
-        expansions[i] = expandRule(expansions, grammar[i]);
-    }
-    return expansions;
-}
-
-expansion expandRule(expansion *expansions, Pair rule){ 
-    //expands the rule and returns its expansion along with its size
-
-    int index;
-
-    //first symbol of the rule
-    int expansionSizeA = 1; 
-    if (rule.A < 0){
-        index = -rule.A-1;
-        expansionSizeA = expansions[index].size;
-    }
-
-    //second symbol of the rule
-    int expansionSizeB = 1;
-    if (rule.B < 0){
-        index = -rule.B-1;
-        expansionSizeB = expansions[index].size;
-    }
-
-    int sizeAux = expansionSizeA + expansionSizeB;
-
-    int *aux = (int*) malloc(sizeAux*sizeof(int));
-
-    if (rule.A < 0){
-        index = -rule.A-1;
-        for (int i = 0; i < expansionSizeA; i++){
-            aux[i] = expansions[index].ptr[i];
-        }  
-    }
-    else{
-        aux[0] = rule.A;
-    } 
-    
-
-    if (rule.B < 0){
-        index = -rule.B-1;
-        for (int i = 0; i < expansionSizeB; i++){
-            aux[expansionSizeA+i] = expansions[index].ptr[i];
-        } 
-    }
-    else{
-        aux[expansionSizeA] = rule.B;
-    } 
-    expansion exp;
-    exp.size = sizeAux;
-    exp.ptr = aux;
-    return exp;
-}
-
-void writeBinaryFile(const char *inputFileName, int *compressedString, int compressedStringSize, Pair *grammar, int grammarSize){
-    //decides the appropriate name for the output file (binary) and stores the compressed information in it
-
-    
-    int sizeOutputArray = compressedStringSize + 2*grammarSize;
-    int8_t *outputArray_int8;
-    int16_t *outputArray_int16;
-    int32_t *outputArray_int32;
-    const char *newExtension; //extension of the binary file to be generated
-
-    int intSize; //stores how many bits are required for the "biggest" (or smallest) integer
-    if ((-grammarSize) >= INT8_MIN){
-        intSize = 8;
-        newExtension = ".re8";
-        outputArray_int8 = (int8_t *) malloc(sizeof(int8_t)*sizeOutputArray);
-    }
-    else if ((-grammarSize) >= INT16_MIN){
-        intSize = 16;
-        newExtension = ".re16";
-        outputArray_int16 = (int16_t *) malloc(sizeof(int16_t)*sizeOutputArray);
-    } 
-    else if ((-grammarSize) >= INT32_MIN){
-        intSize = 32;
-        newExtension = ".re32";
-        outputArray_int32 = (int32_t *) malloc(sizeof(int32_t)*sizeOutputArray);
-    } 
-
-    char* outputFileName = changeExtension(inputFileName, newExtension); 
-
-    // Opens the output file for writing in binary mode
-    FILE *outputFile = fopen(outputFileName, "wb");
-    if (!outputFile) {
-        // Print an error message and exit if the file cannot be opened
-        perror("Unable to open file for writing");
-        exit(EXIT_FAILURE);
-    }
-    
-    free(outputFileName);
-
-    //these 3 sizes are written as regular integers
-    if (fwrite(&intSize, sizeof(intSize), 1, outputFile) != 1){ 
-        perror("Error writing intSize to file");
-        fclose(outputFile);
-        exit(EXIT_FAILURE);
-    }
-    if (fwrite(&compressedStringSize, sizeof(compressedStringSize), 1, outputFile) != 1){ 
-        perror("Error writing compressedStringSize to file");
-        fclose(outputFile);
-        exit(EXIT_FAILURE);
-    }
-    if (fwrite(&grammarSize, sizeof(grammarSize), 1, outputFile) != 1){ 
-        perror("Error writing grammarSize to file");
-        fclose(outputFile);
-        exit(EXIT_FAILURE);
-    }
-
-    int index = 0;
-    switch (intSize){ 
-        case 8: 
-            for (int i = 0; i < compressedStringSize; i++){
-                outputArray_int8[index++] = (int8_t) compressedString[i];
-            }             
-            for (int i = 0; i < grammarSize; i++){
-                outputArray_int8[index++] = (int8_t) grammar[i].A;
-                outputArray_int8[index++] = (int8_t) grammar[i].B;
-            }
-            if (fwrite(outputArray_int8, sizeof(int8_t), index, outputFile) != index){
-                perror("Error writing outputArray_int8 to file");
-                fclose(outputFile);
-                exit(EXIT_FAILURE);
-            }
-            free(outputArray_int8);
-            break;
-        case 16:
-            for (int i = 0; i < compressedStringSize; i++){
-                outputArray_int16[index++] = (int16_t) compressedString[i];
-            }             
-            for (int i = 0; i < grammarSize; i++){
-                outputArray_int16[index++] = (int16_t) grammar[i].A;
-                outputArray_int16[index++] = (int16_t) grammar[i].B;
-            }
-            if (fwrite(outputArray_int16, sizeof(int16_t), index, outputFile) != index){
-                perror("Error writing outputArray_int16 to file");
-                fclose(outputFile);
-                exit(EXIT_FAILURE);
-            }
-            free(outputArray_int16);
-            break;
-        case 32:
-            for (int i = 0; i < compressedStringSize; i++){
-                outputArray_int32[index++] = (int32_t) compressedString[i];
-            }             
-            for (int i = 0; i < grammarSize; i++){
-                outputArray_int32[index++] = (int32_t) grammar[i].A;
-                outputArray_int32[index++] = (int32_t) grammar[i].B;
-            }
-            if (fwrite(outputArray_int32, sizeof(int32_t), index, outputFile) != index){
-                perror("Error writing outputArray_int32 to file");
-                fclose(outputFile);
-                exit(EXIT_FAILURE);
-            }
-            free(outputArray_int32);
-            break;
-        default:
-            exit(EXIT_FAILURE);
-    }
-
-    
-    if (fclose(outputFile) != 0) {
-        perror("Error closing file");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-expansion decompressor(int *array, int arraySize, Pair *grammar, int grammarSize){
-//reconstructs the original text as an array of integers
-    expansion *expansions = expander(grammar, grammarSize); //expand the non-terminal symbols
-    int sizeAux = arraySize; 
-    int *aux = (int*) malloc(sizeAux*sizeof(int)); //the size may be increased in the future with realloc
-    int auxCount = 0; //number of elements in aux
-
-    int grammarIndex, expansionSize;
-    for (int arrayIndex = 0; arrayIndex < arraySize; arrayIndex++){
-        if (array[arrayIndex] < 0){
-            grammarIndex = -array[arrayIndex] - 1;
-            expansionSize = expansions[grammarIndex].size;
-            for (int expansionIndex = 0; expansionIndex < expansionSize; expansionIndex++){
-                if (auxCount==sizeAux){
-                    sizeAux*=2;
-                    resizeArray(&aux,sizeAux);
-                }
-                aux[auxCount++] = expansions[grammarIndex].ptr[expansionIndex];
-            }
-            
-        }
-        else {
-            if (auxCount==sizeAux){
-                sizeAux*=2;
-                resizeArray(&aux,sizeAux);
-            }
-            aux[auxCount++] = array[arrayIndex];
-        }
-    }
-
-    for (int i = 0; i < grammarSize; i++) 
-        free(expansions[i].ptr);
-    free(expansions);
-
-    aux = (int*) realloc(aux, auxCount*sizeof(int));
-    expansion exp;
-    exp.size = auxCount; exp.ptr=aux;
-
-    return exp;
-}
-
-void printCompressedString(expansion compressedString){
-    int size = compressedString.size;
-    int *V = compressedString.ptr;
-    printf("String comprimida: ");
-    for (int i = 0; i < size; i++){
-        if (V[i] < 0){
-            printf("N%d",-V[i]);
-        }
-        else printf("%c",(char) V[i]);
-    }
-    printf("\n");
-}
-
-void printGrammar(Pair *grammar, int grammarSize){
-    for (int i = 0; i < grammarSize; i++){
-        if (grammar[i].A < 0){
-            printf("N%d -> N%d", i+1, -grammar[i].A);
-        }
-        else printf("N%d -> %c", i+1, (char) grammar[i].A);
-        if (grammar[i].B < 0){
-            printf("N%d\n", -grammar[i].B);
-        }
-        else printf("%c\n", (char) grammar[i].B);
-    }
-}
-
-char* changeExtension(const char* originalFilename, const char* newExtension) {
-// returns a filename with the new extension
-
-    // Find the last dot in the filename
-    const char* dot = strrchr(originalFilename, '.');
-    
-    // Calculate the new length: (original length - length of old extension) + length of new extension + 1 for null terminator
-    size_t new_length;
-    if (dot) {
-        new_length = (dot - originalFilename) + strlen(newExtension) + 1;
-    } else {
-        new_length = strlen(originalFilename) + strlen(newExtension) + 1;
-    }
-
-    // Allocate memory for the new filename
-    char* newFilename = (char*)malloc(new_length);
-
-    if (!newFilename) {
-        perror("malloc");
-        return NULL;
-    }
-
-    // Copy the base filename (excluding the old extension, if any)
-    if (dot) {
-        strncpy(newFilename, originalFilename, dot - originalFilename);
-        newFilename[dot - originalFilename] = '\0';
-    } else {
-        strcpy(newFilename, originalFilename);
-    }
-
-    // Append the new extension
-    strcat(newFilename, newExtension);
-
-    return newFilename;
-}
-
-void compressFile(const char *inputFileName){
-//produces a binary file with the compressed text
-
-    //stores the original text as an array of integers
-    int sizeV;
-    int *V = readFileAndConvertToIntArray(inputFileName, &sizeV);
-
-    int *aux = (int*) malloc(sizeV*sizeof(int)); //helps to update V at each iteration
-    int grammarSize = 1000; //this size may be increased if necessary
-    Pair *grammar = (Pair*) malloc(grammarSize*sizeof(Pair)); //array of rules (that may be resized in the future)
-    PQ pq;
-    int numRules = 0; 
-    // Initialize hash maps for pairs
-    Hash h1;
-    Hash h2;
-    recordPairsFirstIteration(V, sizeV, h1);//conta os pares na primeira iteração do RePair
-    insertPairsPQ(h1, pq); //insere todos os pares numa fila de prioridade
-    h1.clear();
-    pair<Pair, int> auxPair = pq.top();
-    pq.pop();
-    Pair maxPair = auxPair.first;
-    int maxPairCount = auxPair.second;
-   
-
-    while(maxPairCount > 1){
-        printf("(%d, %d): %d repetições\n", maxPair.A, maxPair.B, maxPairCount);
-        grammar[numRules++] = maxPair;
-
-        if (numRules==grammarSize){
-            grammarSize*=2;
-            resizeGrammar(&grammar, grammarSize);
-        }
-
-        sizeV = updateString(&V, sizeV, &aux, maxPair, -numRules);
-        recordPairs(V, sizeV, h1, h2, -numRules, maxPair);
-        insertPairsPQ(h1, pq);
-        h1.clear();
-        auxPair = pq.top(); //guarda o "candidato" a par mais frequente
-        pq.pop();
-        Pair keyToFind = auxPair.first;
-        auto it = h2.find(keyToFind);
-
-        while (it != h2.end()){ 
-            auxPair.second = auxPair.second - it->second;
-            h2.erase(it->first);
-            if (auxPair.second > 0) pq.push(auxPair);
-            auxPair = pq.top();//tentando de novo
-            pq.pop();
-            keyToFind = auxPair.first;
-            it = h2.find(keyToFind);
-        }
-
-        maxPair = keyToFind;
-       
-        maxPairCount = auxPair.second;
-
-        
-    }
-
-    free(aux);
-    h2.clear();
-
-    writeBinaryFile(inputFileName, V, sizeV, grammar, numRules);
-
-    free(V);
-    free(grammar);
-   
-}
-
-void decompressFile(const char *inputFilename, const char *outputFilename) { 
-
-    FILE *inputFile = fopen(inputFilename, "rb");
-    if (!inputFile) {
-        perror("Unable to open file for reading");
-        exit(EXIT_FAILURE);
-    }
-
-    int intSize, sizeV, numRules;
-    if (fread(&intSize, sizeof(intSize), 1, inputFile) != 1) {
-        perror("Error reading intSize");
-        fclose(inputFile);
-        exit(EXIT_FAILURE);
-    }
-    if (fread(&sizeV, sizeof(sizeV), 1, inputFile) != 1) {
-        perror("Error reading sizeV");
-        fclose(inputFile);
-        exit(EXIT_FAILURE);
-    }
-    if (fread(&numRules, sizeof(numRules), 1, inputFile) != 1) {
-        perror("Error reading numRules");
-        fclose(inputFile);
-        exit(EXIT_FAILURE);
-    }
-
-
-    int *V = (int *) malloc(sizeV * sizeof(int));
-    if (!V) {
-        perror("Memory allocation failed for V");
-        fclose(inputFile);
-        exit(EXIT_FAILURE);
-    }
-
-    Pair *grammar = (Pair *) malloc(numRules*sizeof(Pair));
-    if (!grammar) {
-        perror("Memory allocation failed for grammar");
-        fclose(inputFile);
-        exit(EXIT_FAILURE);
-    }
-
-    int8_t *inputArray_int8;
-    int16_t *inputArray_int16;
-    int32_t *inputArray_int32;
-    int sizeInputArray = sizeV + 2*numRules;
-
-    int index = 0;
-    switch (intSize){
-        case 8:
-            inputArray_int8 = (int8_t*) malloc(sizeInputArray * sizeof(int8_t));
-            if (!inputArray_int8) {
-                perror("Memory allocation failed for inputArray_int8");
-                fclose(inputFile);
-                exit(EXIT_FAILURE);
-            }
-
-            if (fread(inputArray_int8, sizeof(int8_t), sizeInputArray, inputFile) != sizeInputArray) {
-                perror("Error reading inputArray_int8");
-                free(inputArray_int8);
-                fclose(inputFile);
-                exit(EXIT_FAILURE);
-            }
-
-            for (int i = 0; i < sizeV; i++){
-                V[i] = (int) inputArray_int8[index++];
-            }
-
-            for (int i = 0; i < numRules; i++){
-                grammar[i].A = (int) inputArray_int8[index++];
-                grammar[i].B = (int) inputArray_int8[index++];
-            }
-
-            free(inputArray_int8);
-            break;
-        
-        case 16:
-            inputArray_int16 = (int16_t *)malloc(sizeInputArray * sizeof(int16_t));
-            if (!inputArray_int16) {
-                perror("Memory allocation failed for inputArray_int16");
-                fclose(inputFile);
-                exit(EXIT_FAILURE);
-            }
-
-            if (fread(inputArray_int16, sizeof(int16_t), sizeInputArray, inputFile) != sizeInputArray) {
-                perror("Error reading inputArray_int16");
-                free(inputArray_int16);
-                fclose(inputFile);
-                exit(EXIT_FAILURE);
-            }
-
-            for (int i = 0; i < sizeV; i++){
-                V[i] = (int) inputArray_int16[index++];
-            }
-
-            for (int i = 0; i < numRules; i++){
-                grammar[i].A = (int) inputArray_int16[index++];
-                grammar[i].B = (int) inputArray_int16[index++];
-            }
-           
-            free(inputArray_int16);
-            break;
-
-        case 32:
-            inputArray_int32 = (int32_t *)malloc(sizeInputArray * sizeof(int32_t));
-            if (!inputArray_int32) {
-                perror("Memory allocation failed for inputArray_int32");
-                fclose(inputFile);
-                exit(EXIT_FAILURE);
-            }
-
-            if (fread(inputArray_int32, sizeof(int32_t), sizeInputArray, inputFile) != sizeInputArray) {
-                perror("Error reading inputArray_int32");
-                free(inputArray_int32);
-                fclose(inputFile);
-                exit(EXIT_FAILURE);
-            }
-
-            for (int i = 0; i < sizeV; i++){
-                V[i] = (int) inputArray_int32[index++];
-            }
-
-            for (int i = 0; i < numRules; i++){
-                grammar[i].A = (int) inputArray_int32[index++];
-                grammar[i].B = (int) inputArray_int32[index++];
-            }
-            
-            free(inputArray_int32);
-            break;
-
-        default:
-            break;
-    }
-
-    fclose(inputFile);
-
-    expansion decompressedString = decompressor(V, sizeV, grammar, numRules);
-
-    free(V);
-    free(grammar);
-
-    convertIntArrayToTextFile(decompressedString.ptr, decompressedString.size, outputFilename);
-
-
-    
-    free(decompressedString.ptr);
-}
-
-void printUsage(const char *progName) {
-    fprintf(stderr, "Usage: %s -c <file_to_compress> | -d <file_to_decompress>\n", progName);
-}
-
-// Function to increment the value associated with a Pair in the hash table
-void incrementValueHash(Hash& h, const Pair& pair, int increment) {
-    h[pair] += increment;
-}
