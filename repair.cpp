@@ -71,12 +71,14 @@ vector<vector<int>> expander(vector<Pair>& grammar);
 vector<int> expandRule(vector<vector<int>>& expansions, Pair rule);
 void writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolVector, vector<Pair>& grammar);
 string changeExtension(const string& originalFilename, const string& newExtension);
-void decompressFile(string inputFilename, string outputFilename);
+void decompressFile(const string& inputFilename, string outputFilename);
 vector<int> decompressor(vector<int>& vectorOfIntegers, vector<Pair>& grammar);
 void convertIntArrayToTextFile(vector<int>& array, const string& outputFilename);
 
 PairRecord* incrementPairCount(const Pair pair, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector);
 void compressFile(const string& filename);
+vector<int> decompressorLento(vector<int>& vectorOfIntegers, vector<Pair>& grammar);
+vector<int> expandNonTerminal(int vectorElement, vector<Pair>& grammar);
 
 
 
@@ -689,7 +691,7 @@ string changeExtension(const string& originalFilename, const string& newExtensio
 }
 
 
-void decompressFile(string inputFilename, string outputFilename) { 
+void decompressFile(const string& inputFilename, string outputFilename) { 
 
 
     ifstream inputFile(inputFilename, ios::binary);
@@ -924,6 +926,65 @@ void compressFile(const string& filename){
     writeBinaryFile(filename, symbolVector, grammar);
 }
 
+vector<int> decompressorLento(vector<int>& vectorOfIntegers, vector<Pair>& grammar){
+    vector<int> originalVector; //we want to reconstruct the original text
+    originalVector.reserve(vectorOfIntegers.size());
+    for (const auto& vectorElement: vectorOfIntegers){
+        if (vectorElement < 0){
+            vector<int> expansion = expandNonTerminal(vectorElement, grammar);
+            for (const auto& i: expansion)
+                originalVector.push_back(i);
+        }
+        else 
+            originalVector.push_back(vectorElement);
+    }
+
+    originalVector.shrink_to_fit();
+    
+    return originalVector;
+
+}
+
+vector<int> expandNonTerminal(int vectorElement, vector<Pair>& grammar){
+    if (vectorElement >= 0){
+        cerr << "vectorElement must be negative\n";
+        exit(EXIT_FAILURE);
+    }
+
+    vector<int> expansion;
+
+    int grammarIndex = -vectorElement - 1;
+
+    int symbol1 = grammar[grammarIndex].first;
+    int symbol2 = grammar[grammarIndex].second;
+
+    if (symbol1 < 0){
+        vector<int> aux = expandNonTerminal(symbol1, grammar);
+        for (const auto& i: aux){
+            expansion.push_back(i);
+        }
+    }
+    else
+        expansion.push_back(symbol1);
+
+    if (symbol2 < 0){
+        vector<int> aux = expandNonTerminal(symbol2, grammar);
+        for (const auto& i: aux){
+            expansion.push_back(i);
+        }
+    }
+    else
+        expansion.push_back(symbol2);
+
+    return expansion;
+}
+
+
+
+
+
+
+
 
 
 
@@ -978,11 +1039,3 @@ int main(int argc, char *argv[]){
 
     return 0;
 }
-
-
-
-
-
-
-
-
