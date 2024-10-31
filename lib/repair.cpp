@@ -110,7 +110,7 @@ int getMostFrequentPair(vector<list<PairRecord>>& priorityQueueVector, HashTable
 
     list<PairRecord>::iterator itMaxPair;
 
-    if (i == priorityQueueVector.size() - 1){
+    if (i == (int) priorityQueueVector.size() - 1){
         // Custom comparator to compare pairCount of PairRecord
         auto comp = [](const PairRecord& a, const PairRecord& b) {
             return a.pairCount < b.pairCount;
@@ -149,7 +149,7 @@ Pair getPairFromPosition(int position, vector<VectorElement>& symbolVector){ //'
 int replacePairs(int maxPairFirstAppearance, HashTable& hashTable, vector<list<PairRecord>>& priorityQueueVector, vector<VectorElement>& symbolVector, int newSymbol){
 
     int currentPosition = maxPairFirstAppearance;
-    int lastOccurrence; //holds the last occurrence of the pair being replaced
+    int lastOccurrence=0; //holds the last occurrence of the pair being replaced
     while(currentPosition != EMPTY){
 
         int nextPosition = pairContextHandler(currentPosition, symbolVector, hashTable, priorityQueueVector, newSymbol);
@@ -163,7 +163,7 @@ int replacePairs(int maxPairFirstAppearance, HashTable& hashTable, vector<list<P
 
 //returns nullptr in case the current position is the last non-empty position in the symbol vector
 int getNextNonEmptyPosition(int currentPosition, vector<VectorElement>& symbolVector){ 
-    if (currentPosition == symbolVector.size() - 1)
+    if (currentPosition == (int) symbolVector.size() - 1)
         return EMPTY;
     int nextNonEmptyPosition = currentPosition + 1;
     if (symbolVector[nextNonEmptyPosition].symbol == EMPTY)
@@ -255,7 +255,7 @@ void decreasePairCount(const Pair& pair, HashTable& hashTable, vector<list<PairR
     }
 
 
-    else if (currentCount <= priorityQueueVector.size()){
+    else if (currentCount <= (int) priorityQueueVector.size()){
         list<PairRecord>& listWithPair = priorityQueueVector[currentCount - 1];
         list<PairRecord>& destinationList = priorityQueueVector[currentCount - 2];
         destinationList.splice(destinationList.end(), listWithPair, itPairRecord);
@@ -384,7 +384,7 @@ vector<vector<int>> expander(vector<Pair>& grammar){
 
     //return an array of expansions of the non-terminal symbols of the grammar
     vector<vector<int>> expansions(grammar.size());
-    for (int i = 0; i < grammar.size(); i++)
+    for (size_t i = 0; i < grammar.size(); i++)
         expansions[i] = expandRule(expansions, grammar[i]);
     
     return expansions;
@@ -395,7 +395,7 @@ vector<vector<int>> expander(vector<Pair>& grammar){
 vector<int> expandRule(vector<vector<int>>& expansions, Pair rule){
     //expands the rule and returns its expansion along with its size
 
-    int indexA, indexB;
+    int indexA=0, indexB=0;
     //first symbol of the rule
     int expansionSizeA = 1; 
     if (rule.first < 0){
@@ -435,9 +435,10 @@ vector<int> expandRule(vector<vector<int>>& expansions, Pair rule){
     return aux;
 }
 
-void writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolVector, vector<Pair>& grammar){
+size_t writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolVector, vector<Pair>& grammar){
     //decides the appropriate name for the output file (binary) and stores the compressed information in it
 
+    size_t sizeFinal = 0;
     vector<int> outputVector;
 
     int numRules = grammar.size(); //number of rules
@@ -453,6 +454,8 @@ void writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolV
     }
 
     outputFile.write(reinterpret_cast<char*>(&numRules), sizeof(numRules));
+    sizeFinal += sizeof(numRules);
+
     if (!outputFile.good()) {
         cerr << "Error writing numRules to " << outputFilename << endl;
         outputFile.close();
@@ -463,7 +466,7 @@ void writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolV
         outputVector.push_back(grammar[i].first);
         outputVector.push_back(grammar[i].second);
     }
-    for (int i = 0; i < symbolVector.size(); i++){
+    for (size_t i = 0; i < symbolVector.size(); i++){
         if (symbolVector[i].symbol == EMPTY){
             i = symbolVector[i].next;
             if (i == EMPTY) break;
@@ -471,6 +474,8 @@ void writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolV
         outputVector.push_back(symbolVector[i].symbol);
     }                  
     outputFile.write(reinterpret_cast<const char*>(outputVector.data()), outputVector.size() * sizeof(int));
+    sizeFinal += outputVector.size() * sizeof(int);
+    
     if (!outputFile.good()) {
         cerr << "Error writing outputVector to " << outputFilename << endl;
         outputFile.close(); // Ensure the file is closed on error
@@ -484,6 +489,7 @@ void writeBinaryFile(const string& inputFilename, vector<VectorElement>& symbolV
         exit(EXIT_FAILURE);
     }
 
+return sizeFinal;
 }
 
 string changeExtension(const string& originalFilename, const string& newExtension) {
@@ -596,7 +602,7 @@ PairRecord* incrementPairCount(const Pair pair, HashTable& hashTable, vector<lis
     auto& pairRecord = *itPairRecord;
     int count = ++pairRecord.pairCount;
 
-    if (count > 2 && count < priorityQueueVector.size() + 2){
+    if (count > 2 && count < (int) priorityQueueVector.size() + 2){
         auto& listWithPair = priorityQueueVector[count - 3];
         auto& destinationList = priorityQueueVector[count - 2];
         destinationList.splice(destinationList.end(), listWithPair, itPairRecord);
@@ -615,7 +621,7 @@ void compressFile(const string& filename){
     
 }
 
-void compressor(const string& inputFilename, vector<VectorElement>& symbolVector){
+size_t compressor(const string& inputFilename, vector<VectorElement>& symbolVector){
     size_t priorityQueueVectorSize = ceil(sqrt(symbolVector.size()));
 
     HashTable hashTable;
@@ -664,7 +670,7 @@ void compressor(const string& inputFilename, vector<VectorElement>& symbolVector
         maxPairFirstAppearance = getMostFrequentPair(priorityQueueVector, hashTable, symbolVector, grammar);
 
     }
-    writeBinaryFile(inputFilename, symbolVector, grammar);
+    return writeBinaryFile(inputFilename, symbolVector, grammar);
 }
 
 
@@ -675,7 +681,7 @@ vector<int> decompressor(vector<int>& vectorOfIntegers, vector<Pair>& grammar){
     //the second element holds the size of the expansion
     vector<int> originalVector; //we want to reconstruct the original text                                                          
     originalVector.reserve(vectorOfIntegers.size());
-    for (int i = 0; i < vectorOfIntegers.size(); i++){
+    for (size_t i = 0; i < vectorOfIntegers.size(); i++){
         if (vectorOfIntegers[i] < 0){
             vector<int> expansion = expandNonTerminal(originalVector, originalVector.size(), vectorOfIntegers[i], grammar, alreadyExpandedNonTerminals);
             for (const auto& i: expansion)
@@ -695,7 +701,7 @@ vector<int> expandNonTerminal(vector<int>& originalVector, int positionOriginalV
     vector<int> expansion;
     int grammarIndex = -nonTerminal - 1;
     Pair auxPair = alreadyExpandedNonTerminals[grammarIndex];
-    if (auxPair.second != 0 && originalVector.size() >= auxPair.first + auxPair.second){
+    if ( auxPair.second != 0 && (int)originalVector.size() >= (auxPair.first + auxPair.second)){
         expansion.resize(auxPair.second);
         copy(originalVector.begin() + auxPair.first, originalVector.begin() + auxPair.first + auxPair.second, expansion.begin());
         return expansion;

@@ -1,7 +1,7 @@
 #ifndef REPAIR_H
 #define REPAIR_H
 
-#include <list>
+#include <bits/stdc++.h>
 
 #define EMPTY INT32_MAX
 
@@ -58,7 +58,7 @@ void decrementOldPairs(int* pairContext, std::vector<VectorElement>& symbolVecto
 int newPairs(int* pairContext, HashTable& hashTable, std::vector<std::list<PairRecord>>& priorityQueueVector, std::vector<VectorElement>& symbolVector);
 std::vector<std::vector<int>> expander(std::vector<Pair>& grammar);
 std::vector<int> expandRule(std::vector<std::vector<int>>& expansions, Pair rule);
-void writeBinaryFile(const std::string& inputFilename, std::vector<VectorElement>& symbolVector, std::vector<Pair>& grammar);
+size_t writeBinaryFile(const std::string& inputFilename, std::vector<VectorElement>& symbolVector, std::vector<Pair>& grammar);
 std::string changeExtension(const std::string& originalFilename, const std::string& newExtension);
 void decompressFile(const std::string& inputFilename, const std::string& outputFilename);
 std::vector<int> decompressor(std::vector<int>& vectorOfIntegers, std::vector<Pair>& grammar);
@@ -66,7 +66,7 @@ void convertIntArrayToTextFile(std::vector<int>& array, const std::string& outpu
 
 PairRecord* incrementPairCount(const Pair pair, HashTable& hashTable, std::vector<std::list<PairRecord>>& priorityQueueVector);
 void compressFile(const std::string& filename);
-void compressor(const std::string& inputFilename, std::vector<VectorElement>& symbolVector);
+size_t compressor(const std::string& inputFilename, std::vector<VectorElement>& symbolVector);
 
 std::vector<int> expandNonTerminal(std::vector<int>& originalVector, int positionOriginalVector, int nonTerminal, std::vector<Pair>& grammar, std::vector<Pair>& alreadyExpandedNonTerminals);
 void handleDisappearingPair(Pair disappearingPair, int currentPosition, std::vector<VectorElement>& symbolVector, HashTable& hashTable, std::vector<std::list<PairRecord>>& priorityQueueVector);
