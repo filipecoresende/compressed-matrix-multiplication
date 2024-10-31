@@ -2,18 +2,32 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -Wall -Werror -g -std=c++20
+CXXFLAGS = -Wall -Werror -std=c++20
 
 # Target executable
-TARGET = src/repair
+TARGET = program
 
-# Source file
-SRCS = src/repair.cpp
+# Source files
+SRCS = matrix_compressor.cpp lib/repair.cpp
 
-# Default rule to build the executable
-$(TARGET): $(SRCS)
-	$(CXX) $(CXXFLAGS) -o $@ $<
+# Object files
+OBJS = $(SRCS:.cpp=.o)
 
-# Clean rule to remove the generated files
+# Default rule to build the target
+all: $(TARGET)
+
+# Rule to link object files and create the executable
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+
+# Rule to compile .cpp files into .o files
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Clean up build files
 clean:
-	rm -rf $(TARGET) src/output.txt src/repair.dSYM
+	rm -rf $(OBJS) $(TARGET) lib/repair output.txt *.o output.csv dataset/*.V dataset/*.re32
+
+# Rule to rebuild everything from scratch
+rebuild: clean all
+
