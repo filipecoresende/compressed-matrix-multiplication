@@ -8,10 +8,11 @@ CXXFLAGS = -Wall -Werror -O3 -std=c++20
 TARGET = program
 
 MALLOC_COUNT=
-LDFLAGS= -lm -ldl
+LDFLAGS=
 
 ifneq ($(SYSTEM),Darwin)
 	MALLOC_COUNT=external/malloc_count.o
+	LDFLAGS= -lm -ldl
 endif
 
 CXXFLAGS += $(LDFLAGS)

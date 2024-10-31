@@ -1,7 +1,10 @@
 #ifndef REPAIR_H
 #define REPAIR_H
 
-#include <bits/stdc++.h>
+#include <vector>
+#include <list>
+#include <unordered_map>
+#include <cmath>
 
 #define EMPTY INT32_MAX
 
