@@ -48,7 +48,7 @@ rebuild: clean all
 
 
 INPUT = dataset/covtype.csv 
-BLOCKS = 100000
+BLOCKS = 1
 
 run:
 	./program  -c $(INPUT) $(BLOCKS)
