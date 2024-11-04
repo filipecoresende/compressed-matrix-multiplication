@@ -12,18 +12,15 @@ LDFLAGS=
 
 ifneq ($(SYSTEM),Darwin)
 	MALLOC_COUNT=external/malloc_count.o
-	LDFLAGS= -lm -ldl
 endif
 
 CXXFLAGS += $(LDFLAGS)
 
-# Source files
-SRCS = matrix_compressor.o\
+# Object files
+OBJS = matrix_compressor.o\
 			 lib/repair.o\
 			 lib/utils.o ${MALLOC_COUNT}
-			 
-# Object files
-OBJS = $(SRCS)
+			
 
 # Default rule to build the target
 all: $(TARGET)
@@ -38,10 +35,10 @@ $(TARGET): $(OBJS)
 
 # Clean up build files
 clean:
-	rm -rf $(OBJS) $(TARGET) lib/repair output.txt *.o output.csv dataset/*.V dataset/*.re32
+	rm -rf $(OBJS) $(TARGET) dataset/*.{V,re32}
 
 remove:
-	rm -rf output.csv dataset/*.V dataset/*.re32
+	rm -rf dataset/*.{V,re32}
 
 # Rule to rebuild everything from scratch
 rebuild: clean all
