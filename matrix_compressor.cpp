@@ -41,7 +41,11 @@ size_t compressCSVFile(const string& filename, int numBlocks){
   file.clear();
   file.seekg(0, std::ios_base::beg);
 
-  int blockSize = rows/numBlocks;//number of lines per block
+  int smallBlockSize = rows / numBlocks;//number of lines per block
+
+  int largeBlockSize = smallBlockSize + 1;
+
+  int remainder = rows % numBlocks; //number of large blocks
 
   int blockCount = 0;
 
@@ -49,7 +53,14 @@ size_t compressCSVFile(const string& filename, int numBlocks){
   while (!file.eof()) {
     blockCount++;
 
+    int blockSize = smallBlockSize;
+    if (remainder > 0) {
+        blockSize = largeBlockSize;
+        remainder--;
+    }
+
     pair<vector<double>,vector<VectorElement>> csrvRepresentation =  generateCSRV(file, numCol, blockSize);
+
 
     vector<VectorElement> csrvVector = csrvRepresentation.second;
     if (csrvVector.empty()) 
