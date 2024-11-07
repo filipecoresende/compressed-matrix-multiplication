@@ -1,8 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
+#include <algorithm>
 #include "repair.hpp"
-
 using namespace std;
 
 //reads from a text file and produces the first version of the symbol vector

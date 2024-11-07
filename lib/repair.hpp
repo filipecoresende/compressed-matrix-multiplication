@@ -5,6 +5,7 @@
 #include <list>
 #include <unordered_map>
 #include <cmath>
+#include <cstdint>
 
 #define EMPTY INT32_MAX
 
