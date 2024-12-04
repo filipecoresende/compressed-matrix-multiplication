@@ -17,6 +17,7 @@
 *.exe
 *.out
 *.app
+program
 
 # Debug files
 *.dSYM/
@@ -71,12 +72,8 @@ TAGS
 cscope.*
 
 # Compressed texts
-*.re8
-*.re16
 *.re32
+*.V
 
 # macOS specific files
 .DS_Store
-
-
-repair
